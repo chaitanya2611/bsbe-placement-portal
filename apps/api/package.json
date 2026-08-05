@@ -33,7 +33,7 @@
     "class-validator": "0.15.1",
     "exceljs": "^4.4.0",
     "helmet": "8.3.0",
-    "mongoose": "8.24.1",
+    "mongoose": "9.9.1",
     "multer": "2.2.0",
     "nodemailer": "9.0.3",
     "openchemlib": "9.24.0",
