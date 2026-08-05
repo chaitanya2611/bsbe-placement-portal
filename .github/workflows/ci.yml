@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4.1.0
+        with:
+          version: 11.9.0
+          run_install: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Build and test
+        run: pnpm test
+
+      - name: Start identity test infrastructure
+        run: docker compose up -d --wait mongo mongo-init mailpit
+
+      - name: Test real MongoDB readiness
+        env:
+          RUN_DATABASE_INTEGRATION: 'true'
+          MONGODB_URI: mongodb://localhost:27017/bsbe_portal?replicaSet=rs0&directConnection=true
+        run: node --test tests/api-database.integration.test.mjs
+
+      - name: Test real identity lifecycle
+        env:
+          RUN_IDENTITY_INTEGRATION: 'true'
+          MONGODB_URI: mongodb://localhost:27017/bsbe_portal?replicaSet=rs0&directConnection=true
+        run: node --test tests/identity-auth.integration.test.mjs
+
+      - name: Test real question-bank lifecycle
+        env:
+          RUN_QUESTION_INTEGRATION: 'true'
+          MONGODB_URI: mongodb://localhost:27017/bsbe_portal?replicaSet=rs0&directConnection=true
+        run: node --test tests/question-bank.integration.test.mjs
+
+      - name: Test real exam lifecycle and exports
+        env:
+          RUN_EXAM_INTEGRATION: 'true'
+          MONGODB_URI: mongodb://localhost:27017/bsbe_portal?replicaSet=rs0&directConnection=true
+        run: node --test tests/exam-workflow.integration.test.mjs
+
+      - name: Show infrastructure logs after failure
+        if: failure()
+        run: docker compose logs mongo mongo-init mailpit
+
+      - name: Stop test infrastructure
+        if: always()
+        run: docker compose down --volumes

@@ -1,0 +1,42 @@
+{
+  "name": "bsbe-placement-portal",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Secure BSBE placement mock-test portal monorepo",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=24.14.0 <25",
+    "pnpm": "11.9.0"
+  },
+  "scripts": {
+    "admin:change-email": "pnpm run build && pnpm --filter @bsbe/api run admin:change-email",
+    "build": "pnpm -r --if-present run build",
+    "build:packages": "pnpm --filter @bsbe/config --filter @bsbe/contracts --filter @bsbe/shared run build",
+    "bootstrap:admin": "pnpm run build && pnpm --filter @bsbe/api run bootstrap:admin",
+    "clean": "pnpm -r --if-present run clean",
+    "dev": "pnpm --parallel --filter @bsbe/api --filter @bsbe/web run dev",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "pnpm run build:packages && eslint . --max-warnings=0",
+    "migrate": "pnpm run build && pnpm --filter @bsbe/api run migrate",
+    "seed": "pnpm --filter @bsbe/api run seed",
+    "test": "pnpm run build && node --test tests/*.test.mjs",
+    "test:exam:integration": "pnpm run build && node --test tests/exam-workflow.integration.test.mjs",
+    "typecheck": "pnpm run build:packages && pnpm -r --if-present run typecheck",
+    "validate:phase1": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase1.ps1",
+    "validate:phase2": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase2.ps1",
+    "validate:phase3": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/validate-phase3.ps1",
+    "validate:release": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.10.1",
+    "eslint": "10.8.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.8.0",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.65.0"
+  }
+}

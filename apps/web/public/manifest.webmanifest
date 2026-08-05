@@ -1,0 +1,10 @@
+{
+  "name": "BSBE Placement Mock Test Portal",
+  "short_name": "BSBE Portal",
+  "description": "BSBE departmental placement mock-test portal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f7fa",
+  "theme_color": "#16324f",
+  "icons": []
+}

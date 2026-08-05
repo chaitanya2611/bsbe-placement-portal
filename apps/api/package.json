@@ -1,0 +1,53 @@
+{
+  "name": "@bsbe/api",
+  "version": "0.3.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "admin:change-email": "node --enable-source-maps dist/identity/change-admin-email.cli.js",
+    "build": "tsc -p tsconfig.build.json",
+    "bootstrap:admin": "node --enable-source-maps dist/identity/bootstrap-admin.cli.js",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "dev": "node scripts/dev.mjs",
+    "migrate": "node --enable-source-maps dist/identity/migration.cli.js",
+    "seed": "node --enable-source-maps dist/seed/seed.cli.js",
+    "start": "node --enable-source-maps dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1091.0",
+    "@bsbe/config": "workspace:*",
+    "@bsbe/contracts": "workspace:*",
+    "@bsbe/shared": "workspace:*",
+    "@nestjs/common": "11.1.28",
+    "@nestjs/config": "4.0.4",
+    "@nestjs/core": "11.1.28",
+    "@nestjs/mongoose": "11.0.4",
+    "@nestjs/platform-express": "11.1.28",
+    "@nestjs/swagger": "11.4.6",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "exceljs": "^4.4.0",
+    "helmet": "8.3.0",
+    "mongoose": "8.24.1",
+    "multer": "2.2.0",
+    "nodemailer": "9.0.3",
+    "openchemlib": "9.24.0",
+    "pdf-lib": "^1.17.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "sharp": "0.35.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/multer": "2.2.0",
+    "@types/node": "24.10.1",
+    "@types/nodemailer": "8.0.1",
+    "typescript": "6.0.3"
+  }
+}
