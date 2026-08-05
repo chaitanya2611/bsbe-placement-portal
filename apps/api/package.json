@@ -19,7 +19,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1091.0",
+    "@aws-sdk/client-s3": "3.1101.0",
     "@bsbe/config": "workspace:*",
     "@bsbe/contracts": "workspace:*",
     "@bsbe/shared": "workspace:*",
