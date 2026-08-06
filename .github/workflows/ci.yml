@@ -48,7 +48,10 @@ jobs:
         run: pnpm test
 
       - name: Start identity test infrastructure
-        run: docker compose --env-file .env.example up -d --wait mongo mongo-init mailpit
+        run: |
+          docker compose --env-file .env.example up -d --wait mongo mailpit
+          docker compose --env-file .env.example up -d mongo-init
+          docker compose --env-file .env.example wait mongo-init
 
       - name: Test real MongoDB readiness
         env:
