@@ -5,7 +5,7 @@ services:
   - type: web
     name: bsbe-placement-portal
     runtime: docker
-    plan: starter
+    plan: free
     region: singapore
     dockerfilePath: ./apps/web/Dockerfile
     dockerContext: .
@@ -16,22 +16,19 @@ services:
         value: production
       - key: PORT
         value: '10000'
-      - key: API_INTERNAL_HOSTPORT
-        fromService:
-          type: pserv
-          name: bsbe-placement-api
-          property: hostport
+      - key: API_PUBLIC_ORIGIN
+        value: https://bsbe-placement-api.onrender.com
 
-  - type: pserv
+  - type: web
     name: bsbe-placement-api
     runtime: docker
-    plan: starter
+    plan: free
     region: singapore
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
     autoDeployTrigger: commit
-    preDeployCommand: node --enable-source-maps dist/identity/migration.cli.js
-    initialDeployHook: node --enable-source-maps dist/identity/bootstrap-admin.cli.js --email walvekarchaitanya@gmail.com --name "Initial Administrator"
+    dockerCommand: node --enable-source-maps dist/render-free-start.js
+    healthCheckPath: /api/v1/health/live
     envVars:
       - key: NODE_ENV
         value: production
@@ -73,6 +70,10 @@ services:
         value: 'true'
       - key: QUESTION_RUBRIC_ACTIVE_KEY_VERSION
         value: production-v1
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        value: walvekarchaitanya@gmail.com
+      - key: BOOTSTRAP_ADMIN_NAME
+        value: Initial Administrator
       - key: OTP_PEPPER
         generateValue: true
       - key: SESSION_TOKEN_PEPPER

@@ -4,11 +4,17 @@ The repository includes `render.yaml` for a two-service production deployment in
 Singapore region:
 
 - `bsbe-placement-portal`: the public web application and same-origin API proxy.
-- `bsbe-placement-api`: the private NestJS API and its in-process maintenance worker.
+- `bsbe-placement-api`: the public NestJS API used by the portal proxy.
 
-Both services use paid Starter instances. This is intentional: Render's free web services sleep
-when idle and do not permit outbound SMTP traffic on the common SMTP ports, so they are not a
-suitable production target for timed exams or email sign-in.
+Both services use Render's Free instance type, so creating the Blueprint does not require a payment
+method. This deployment is suitable for evaluation and light testing, not a real placement exam:
+
+- Free services sleep after 15 minutes without traffic and can take about a minute to wake.
+- The workspace's 750 monthly Free instance hours are shared by both services.
+- Free services cannot send SMTP traffic on ports 25, 465, or 587. Use a provider that supports
+  port 2525 with `SMTP_SECURE=false`.
+- Local files are ephemeral, so MongoDB and private question media must remain in external managed
+  services.
 
 ## Before creating the Blueprint
 
@@ -16,8 +22,8 @@ suitable production target for timed exams or email sign-in.
 2. Create a production MongoDB Atlas deployment and copy its `mongodb+srv://` connection string.
 3. Create a private S3-compatible bucket. Keep the endpoint, region, bucket, access key, and secret
    ready.
-4. Create an SMTP account that supports an alternate submission port such as 2525, or confirm that
-   the selected Render plan can reach your provider's chosen port.
+4. Create an SMTP account that supports port 2525. Gmail SMTP cannot be used directly from a free
+   Render service because its standard ports are blocked.
 5. Generate a 32-byte rubric key and wrap it in a JSON key ring. PowerShell example:
 
    ```powershell
@@ -39,9 +45,9 @@ Render prompts for all entries marked `sync: false`. Enter:
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`    | Private object-storage location            |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Restricted object-storage credentials      |
 
-Render generates the remaining cryptographic secrets. The API runs migrations before deployment
-and bootstraps `walvekarchaitanya@gmail.com` as the initial administrator after its first successful
-deployment. Candidate sign-in remains restricted to `@iitb.ac.in`.
+Render generates the remaining cryptographic secrets. On every cold start, the API applies any
+pending idempotent migrations and creates `walvekarchaitanya@gmail.com` only when no administrator
+exists. Candidate sign-in remains restricted to `@iitb.ac.in`.
 
 ## Verify the release
 

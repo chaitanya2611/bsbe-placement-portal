@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ConflictException } from '@nestjs/common';
 import { AppModule } from '../app.module';
 import { JsonLogger } from '../common/json.logger';
 import { BootstrapAdminService } from './bootstrap-admin.service';
@@ -7,6 +8,10 @@ import { MigrationService } from './migration.service';
 function argument(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
   return index >= 0 ? process.argv[index + 1] : undefined;
+}
+
+function hasFlag(name: string): boolean {
+  return process.argv.includes(`--${name}`);
 }
 
 async function main(): Promise<void> {
@@ -28,6 +33,10 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error: unknown) => {
+  if (hasFlag('if-missing') && error instanceof ConflictException) {
+    process.stdout.write('Administrator already exists; bootstrap skipped.\n');
+    return;
+  }
   process.stderr.write(
     `Administrator bootstrap failed: ${error instanceof Error ? error.message : 'unknown error'}\n`,
   );

@@ -1,5 +1,6 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer, request as createProxyRequest } from 'node:http';
+import { request as createSecureProxyRequest } from 'node:https';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,6 +10,7 @@ const apiPublicOrigin = process.env.API_PUBLIC_ORIGIN
   ? new URL(process.env.API_PUBLIC_ORIGIN).origin
   : '';
 const apiInternalHostport = process.env.API_INTERNAL_HOSTPORT?.trim();
+const apiUpstreamOrigin = apiInternalHostport ? `http://${apiInternalHostport}` : apiPublicOrigin;
 
 const contentTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
@@ -30,7 +32,7 @@ const securityHeaders = {
 };
 
 function proxyToApi(request, response) {
-  if (!apiInternalHostport) {
+  if (!apiUpstreamOrigin) {
     response.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
     response.end(
       JSON.stringify({ code: 'API_UNAVAILABLE', message: 'API proxy is not configured' }),
@@ -47,12 +49,15 @@ function proxyToApi(request, response) {
   delete forwardedHeaders.trailer;
   delete forwardedHeaders['transfer-encoding'];
   delete forwardedHeaders.upgrade;
-  forwardedHeaders.host = apiInternalHostport;
+  const upstreamUrl = new URL(request.url ?? '/', `${apiUpstreamOrigin}/`);
+  forwardedHeaders.host = upstreamUrl.host;
   forwardedHeaders['x-forwarded-host'] = request.headers.host ?? '';
   forwardedHeaders['x-forwarded-proto'] = 'https';
 
-  const upstream = createProxyRequest(
-    `http://${apiInternalHostport}${request.url ?? '/'}`,
+  const proxyRequest =
+    upstreamUrl.protocol === 'https:' ? createSecureProxyRequest : createProxyRequest;
+  const upstream = proxyRequest(
+    upstreamUrl,
     { method: request.method, headers: forwardedHeaders },
     (upstreamResponse) => {
       const responseHeaders = { ...upstreamResponse.headers };
