@@ -43,7 +43,7 @@ export class MediaStorageService {
           Body: body,
           ContentType: contentType,
           CacheControl: 'private, no-store',
-          ServerSideEncryption: 'AES256',
+          ServerSideEncryption: this.config.get('S3_SERVER_SIDE_ENCRYPTION', { infer: true }),
         }),
       );
       return;

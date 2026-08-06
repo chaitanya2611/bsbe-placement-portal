@@ -151,6 +151,7 @@ export const apiEnvironmentSchema = z
     S3_ACCESS_KEY_ID: emptyStringToUndefined(z.string().min(1).optional()),
     S3_SECRET_ACCESS_KEY: emptyStringToUndefined(z.string().min(1).optional()),
     S3_FORCE_PATH_STYLE: trueBooleanString,
+    S3_SERVER_SIDE_ENCRYPTION: emptyStringToUndefined(z.literal('AES256').optional()),
   })
   .superRefine((environment, context) => {
     if (
