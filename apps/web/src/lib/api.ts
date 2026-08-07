@@ -72,7 +72,13 @@ async function api<T>(path: string, init: RequestInit = {}, retryCsrf = true): P
     return api<T>(path, init, false);
   }
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as ApiFailureBody;
+    const body = (await response
+      .text()
+      .then((text) => {
+        if (!text.trim()) return {};
+        return JSON.parse(text) as ApiFailureBody;
+      })
+      .catch(() => ({}))) as ApiFailureBody;
     const fallbackMessage =
       body.code === 'RECENT_AUTHENTICATION_REQUIRED'
         ? 'Your administrator verification has expired. Sign out and sign in again to continue.'

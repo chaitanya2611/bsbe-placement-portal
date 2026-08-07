@@ -657,6 +657,26 @@ export function QuestionBank(): ReactElement {
       setNotice('Question deleted.');
     },
   });
+  const filteredQuestions = useMemo(() => {
+    const items = questions.data ?? [];
+    const search = filters.search.trim().toLowerCase();
+    return items.filter((question) => {
+      if (filters.type && question.type !== filters.type) return false;
+      if (filters.difficulty && question.difficulty !== filters.difficulty) return false;
+      if (!search) return true;
+      const haystack = [
+        question.promptSummary,
+        question.type,
+        question.difficulty,
+        question.tags.join(' '),
+        `v${question.version}`,
+        `${question.marks} marks`,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(search);
+    });
+  }, [filters.difficulty, filters.search, filters.type, questions.data]);
 
   const beginEdit = async (summary: QuestionSummary): Promise<void> => {
     try {
@@ -711,7 +731,7 @@ export function QuestionBank(): ReactElement {
       <section className="panel filter-grid" aria-label="Question filters">
         <input
           aria-label="Search questions"
-          placeholder="Search prompt or tags"
+          placeholder="Search question text, tags, v#, or marks"
           value={filters.search}
           onChange={(event) =>
             setFilters((current) => ({ ...current, search: event.target.value }))
@@ -746,6 +766,12 @@ export function QuestionBank(): ReactElement {
           <option value="medium">Medium</option>
           <option value="hard">Hard</option>
         </select>
+        <button
+          className="secondary-button"
+          onClick={() => setFilters({ search: '', type: '', difficulty: '', tag: '' })}
+        >
+          Clear filters
+        </button>
       </section>
       {notice ? (
         <p className="form-success" role="status">
@@ -759,8 +785,11 @@ export function QuestionBank(): ReactElement {
       ) : null}
       {questions.isLoading ? <p>Loading questions…</p> : null}
       {questions.error ? <p className="form-error">{message(questions.error)}</p> : null}
+      <p className="form-help">
+        Showing {filteredQuestions.length} of {questions.data?.length ?? 0} questions.
+      </p>
       <section className="question-list">
-        {questions.data?.map((question) => (
+        {filteredQuestions.map((question) => (
           <article className="panel question-row" key={question.id}>
             <div className="question-row-main">
               <div className="question-meta">

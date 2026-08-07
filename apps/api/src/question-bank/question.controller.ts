@@ -7,7 +7,7 @@ import type {
 import { questionDefinitionSchema, updateQuestionSchema } from '@bsbe/contracts';
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req } from '@nestjs/common';
 import { ApiBody, ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { RequirePermissions, RequireRecentAuthentication } from '../identity/access-control';
+import { RequirePermissions } from '../identity/access-control';
 import type { AuthenticatedRequest } from '../identity/request-context';
 import { ListQuestionsDto } from './question.dto';
 import { QuestionService, type QuestionHistory, type RevealedRubric } from './question.service';
@@ -27,7 +27,6 @@ export class QuestionController {
   }
 
   @Post()
-  @RequireRecentAuthentication()
   @ApiBody({ description: 'Validated question definition including the encrypted-at-rest answer' })
   @ApiOperation({ summary: 'Create a question and immutable version 1' })
   create(
@@ -44,7 +43,6 @@ export class QuestionController {
   }
 
   @Put(':questionId')
-  @RequireRecentAuthentication()
   @ApiBody({
     description: 'Expected current version plus a complete validated replacement definition',
   })
@@ -58,7 +56,6 @@ export class QuestionController {
   }
 
   @Delete(':questionId')
-  @RequireRecentAuthentication()
   @ApiOperation({ summary: 'Delete an unused question and all of its versions' })
   delete(@Param('questionId') questionId: string, @Req() request: AuthenticatedRequest): Promise<void> {
     return this.questions.delete(questionId, request.authentication!.user, request);
