@@ -272,7 +272,7 @@ export class QuestionService {
             negativeMarks: sourceVersion.negativeMarks,
             difficulty: sourceVersion.difficulty,
             tags: [...sourceVersion.tags],
-            explanation: sourceVersion.explanation,
+            explanation: sourceVersion.explanation ?? '',
             mediaIds: [...sourceVersion.mediaIds],
             ...(sourceVersion.chemicalStructure
               ? {
@@ -536,7 +536,7 @@ export class QuestionService {
       negativeMarks: definition.negativeMarks,
       difficulty: definition.difficulty,
       tags: this.tags(definition.tags),
-      explanation: definition.explanation,
+      explanation: definition.explanation ?? '',
       mediaIds: definition.mediaIds.map((id) => media.get(id)!._id),
       ...(definition.chemicalStructure ? { chemicalStructure: definition.chemicalStructure } : {}),
       ...(definition.type === 'numerical'
