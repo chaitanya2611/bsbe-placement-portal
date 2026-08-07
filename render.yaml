@@ -53,13 +53,13 @@ services:
       - key: SESSION_COOKIE_NAME
         value: bsbe_session
       - key: SESSION_IDLE_TTL_SECONDS
-        value: '3600'
+        value: '86400'
       - key: SESSION_ABSOLUTE_TTL_SECONDS
-        value: '43200'
+        value: '604800'
       - key: STUDENT_CONCURRENT_LOGIN_POLICY
         value: replace
       - key: RECENT_AUTH_MAX_AGE_SECONDS
-        value: '600'
+        value: '86400'
       - key: MAILPIT_UI_URL
         value: https://mail.invalid
       - key: OBJECT_STORAGE_PROVIDER

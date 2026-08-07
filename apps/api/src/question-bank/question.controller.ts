@@ -5,11 +5,11 @@ import type {
   UpdateQuestionInput,
 } from '@bsbe/contracts';
 import { questionDefinitionSchema, updateQuestionSchema } from '@bsbe/contracts';
-import { Body, Controller, Get, Param, Patch, Post, Put, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req } from '@nestjs/common';
 import { ApiBody, ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RequirePermissions, RequireRecentAuthentication } from '../identity/access-control';
 import type { AuthenticatedRequest } from '../identity/request-context';
-import { ListQuestionsDto, SetQuestionStatusDto } from './question.dto';
+import { ListQuestionsDto } from './question.dto';
 import { QuestionService, type QuestionHistory, type RevealedRubric } from './question.service';
 import { ZodValidationPipe } from './zod-validation.pipe';
 
@@ -29,7 +29,7 @@ export class QuestionController {
   @Post()
   @RequireRecentAuthentication()
   @ApiBody({ description: 'Validated question definition including the encrypted-at-rest answer' })
-  @ApiOperation({ summary: 'Create a draft question and immutable version 1' })
+  @ApiOperation({ summary: 'Create a question and immutable version 1' })
   create(
     @Body(new ZodValidationPipe(questionDefinitionSchema)) definition: QuestionDefinition,
     @Req() request: AuthenticatedRequest,
@@ -57,31 +57,11 @@ export class QuestionController {
     return this.questions.update(questionId, input, request.authentication!.user, request);
   }
 
-  @Post(':questionId/clone')
+  @Delete(':questionId')
   @RequireRecentAuthentication()
-  @ApiOperation({ summary: 'Clone the current version into a separate draft question' })
-  clone(
-    @Param('questionId') questionId: string,
-    @Req() request: AuthenticatedRequest,
-  ): Promise<SafeQuestionVersion> {
-    return this.questions.clone(questionId, request.authentication!.user, request);
-  }
-
-  @Patch(':questionId/status')
-  @RequireRecentAuthentication()
-  @ApiOperation({ summary: 'Activate, return to draft, or archive a question with a reason' })
-  setStatus(
-    @Param('questionId') questionId: string,
-    @Body() body: SetQuestionStatusDto,
-    @Req() request: AuthenticatedRequest,
-  ): Promise<QuestionSummary> {
-    return this.questions.setStatus(
-      questionId,
-      body.status,
-      body.reason,
-      request.authentication!.user,
-      request,
-    );
+  @ApiOperation({ summary: 'Delete an unused question and all of its versions' })
+  delete(@Param('questionId') questionId: string, @Req() request: AuthenticatedRequest): Promise<void> {
+    return this.questions.delete(questionId, request.authentication!.user, request);
   }
 
   @Get(':questionId/history')

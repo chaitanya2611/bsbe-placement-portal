@@ -123,10 +123,10 @@ export const apiEnvironmentSchema = z
       .string()
       .regex(/^[A-Za-z0-9_-]+$/)
       .default('bsbe_session'),
-    SESSION_IDLE_TTL_SECONDS: z.coerce.number().int().min(300).max(86_400).default(3600),
-    SESSION_ABSOLUTE_TTL_SECONDS: z.coerce.number().int().min(900).max(2_592_000).default(43_200),
+    SESSION_IDLE_TTL_SECONDS: z.coerce.number().int().min(300).max(86_400).default(86_400),
+    SESSION_ABSOLUTE_TTL_SECONDS: z.coerce.number().int().min(900).max(2_592_000).default(604_800),
     STUDENT_CONCURRENT_LOGIN_POLICY: z.enum(['replace', 'reject']).default('replace'),
-    RECENT_AUTH_MAX_AGE_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
+    RECENT_AUTH_MAX_AGE_SECONDS: z.coerce.number().int().min(60).max(86_400).default(86_400),
     CSRF_SECRET: productionSecret('CSRF_SECRET'),
     CSRF_COOKIE_NAME: z
       .string()

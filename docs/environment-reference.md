@@ -52,8 +52,8 @@ Phase 2 sends OTP mail synchronously with bounded SMTP timeouts. Durable queued 
 | --------------------------------- | ---------------------- | --------------------------------------------------------------------- |
 | `SESSION_TOKEN_PEPPER`            | development-only value | Key mixed into stored session-token digests; at least 32 characters   |
 | `SESSION_COOKIE_NAME`             | `bsbe_session`         | Opaque `HttpOnly` session cookie name                                 |
-| `SESSION_IDLE_TTL_SECONDS`        | `3600`                 | Sliding inactivity lifetime                                           |
-| `SESSION_ABSOLUTE_TTL_SECONDS`    | `43200`                | Maximum session lifetime; cannot be shorter than idle lifetime        |
+| `SESSION_IDLE_TTL_SECONDS`        | `86400`                | Sliding inactivity lifetime                                           |
+| `SESSION_ABSOLUTE_TTL_SECONDS`    | `604800`               | Maximum session lifetime; cannot be shorter than idle lifetime        |
 | `STUDENT_CONCURRENT_LOGIN_POLICY` | `replace`              | `replace` old session or `reject` new login outside an active attempt |
 | `RECENT_AUTH_MAX_AGE_SECONDS`     | `600`                  | Fresh-login/step-up age for sensitive administrator operations        |
 | `CSRF_SECRET`                     | development-only value | HMAC key for signed double-submit CSRF tokens; at least 32 characters |

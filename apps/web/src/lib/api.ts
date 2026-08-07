@@ -73,10 +73,16 @@ async function api<T>(path: string, init: RequestInit = {}, retryCsrf = true): P
   }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ApiFailureBody;
+    const fallbackMessage =
+      body.code === 'RECENT_AUTHENTICATION_REQUIRED'
+        ? 'Your administrator verification has expired. Sign out and sign in again to continue.'
+        : body.code === 'AUTHENTICATION_REQUIRED'
+          ? 'Your secure session has expired. Sign in again to continue.'
+          : 'Request failed';
     throw new ApiFailure(
       response.status,
       body.code ?? 'REQUEST_FAILED',
-      body.message ?? 'Request failed',
+      body.message ?? fallbackMessage,
     );
   }
   if (response.status === 204) return undefined as T;
@@ -145,13 +151,8 @@ export const identityApi = {
       method: 'PUT',
       body: JSON.stringify({ expectedVersion, definition }),
     }),
-  cloneQuestion: (questionId: string) =>
-    api<SafeQuestionVersion>(`/admin/questions/${questionId}/clone`, { method: 'POST' }),
-  setQuestionStatus: (questionId: string, status: QuestionStatus, reason: string) =>
-    api<QuestionSummary>(`/admin/questions/${questionId}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status, reason }),
-    }),
+  deleteQuestion: (questionId: string) =>
+    api<void>(`/admin/questions/${questionId}`, { method: 'DELETE' }),
   revealRubric: (questionId: string) =>
     api<{ questionId: string; questionVersionId: string; version: number; answer: unknown }>(
       `/admin/questions/${questionId}/rubric`,

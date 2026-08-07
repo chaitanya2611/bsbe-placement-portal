@@ -102,7 +102,7 @@ export class QuestionService {
             currentVersionId: versionId,
             currentVersionNumber: 1,
             type: definition.type,
-            status: 'draft',
+            status: 'active',
             promptSummary: this.promptSummary(definition.prompt),
             searchText: this.searchText(definition),
             difficulty: definition.difficulty,
@@ -315,7 +315,7 @@ export class QuestionService {
             currentVersionId: newVersionId,
             currentVersionNumber: 1,
             type: source.type,
-            status: 'draft',
+            status: 'active',
             promptSummary: source.promptSummary,
             searchText: source.searchText,
             difficulty: source.difficulty,
@@ -342,6 +342,41 @@ export class QuestionService {
     });
     if (!cloneVersion) throw new Error('Clone transaction did not create a version');
     return this.safeVersion(newQuestionPublicId, cloneVersion);
+  }
+
+  async delete(publicId: string, actor: UserDocument, request: Request): Promise<void> {
+    const question = await this.questionModel.findOne({ publicId }).exec();
+    if (!question) throw this.notFound();
+    const usageCount = await this.usageModel.countDocuments({ questionId: question._id }).exec();
+    if (usageCount > 0) {
+      throw new ConflictException({
+        code: 'QUESTION_IN_USE',
+        message: 'Questions used in exams cannot be deleted',
+      });
+    }
+
+    await this.connection.transaction(async (databaseSession) => {
+      const versionIds = await this.versionModel
+        .distinct('_id', { questionId: question._id })
+        .session(databaseSession)
+        .exec();
+      await this.rubricModel.deleteMany({ questionVersionId: { $in: versionIds } }).session(
+        databaseSession,
+      );
+      await this.versionModel.deleteMany({ questionId: question._id }).session(databaseSession);
+      await this.questionModel.deleteOne({ _id: question._id }).session(databaseSession);
+      await this.usageModel.deleteMany({ questionId: question._id }).session(databaseSession);
+      await this.audit.record({
+        eventType: 'question.deleted',
+        actorUserId: actor._id,
+        actorRole: actor.role,
+        targetType: 'question',
+        targetPublicId: publicId,
+        outcome: 'success',
+        request,
+        databaseSession,
+      });
+    });
   }
 
   async list(query: ListQuestionsDto): Promise<QuestionSummary[]> {

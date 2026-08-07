@@ -3,7 +3,6 @@ import type {
   MediaAsset,
   QuestionDefinition,
   QuestionDifficulty,
-  QuestionStatus,
   QuestionSummary,
   QuestionType,
   SafeQuestionVersion,
@@ -601,7 +600,7 @@ function QuestionEditor({
           </p>
         ) : null}
         <button className="primary-button" disabled={save.isPending}>
-          {save.isPending ? 'Saving…' : question ? 'Create new version' : 'Create draft question'}
+          {save.isPending ? 'Saving…' : question ? 'Create new version' : 'Create question'}
         </button>
         {question ? (
           <details className="version-history">
@@ -638,7 +637,6 @@ export function QuestionBank(): ReactElement {
     search: '',
     type: '' as QuestionType | '',
     difficulty: '' as QuestionDifficulty | '',
-    status: '' as QuestionStatus | '',
     tag: '',
   });
   const [editing, setEditing] = useState<SafeQuestionVersion | 'new' | undefined>();
@@ -652,22 +650,12 @@ export function QuestionBank(): ReactElement {
     mutationFn: identityApi.uploadMedia,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media'] }),
   });
-  const clone = useMutation({
-    mutationFn: identityApi.cloneQuestion,
-    onSuccess: async (version) => {
+  const remove = useMutation({
+    mutationFn: identityApi.deleteQuestion,
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['questions'] });
-      setEditing(version);
-      setNotice('Clone created as a separate draft.');
+      setNotice('Question deleted.');
     },
-  });
-  const status = useMutation({
-    mutationFn: ({ question, next }: { question: QuestionSummary; next: QuestionStatus }) =>
-      identityApi.setQuestionStatus(
-        question.id,
-        next,
-        `${next === 'archived' ? 'Archived' : 'Status changed'} from question bank`,
-      ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['questions'] }),
   });
 
   const beginEdit = async (summary: QuestionSummary): Promise<void> => {
@@ -698,7 +686,7 @@ export function QuestionBank(): ReactElement {
       <section className="question-toolbar panel">
         <div>
           <p className="eyebrow">Phase 3</p>
-          <h2>Question bank</h2>
+          <h2>Question pool</h2>
           <p className="form-help">
             Versioned questions, protected rubrics, equations, structures, and private media.
           </p>
@@ -758,30 +746,15 @@ export function QuestionBank(): ReactElement {
           <option value="medium">Medium</option>
           <option value="hard">Hard</option>
         </select>
-        <select
-          aria-label="Filter by status"
-          value={filters.status}
-          onChange={(event) =>
-            setFilters((current) => ({
-              ...current,
-              status: event.target.value as QuestionStatus | '',
-            }))
-          }
-        >
-          <option value="">All statuses</option>
-          <option value="draft">Draft</option>
-          <option value="active">Active</option>
-          <option value="archived">Archived</option>
-        </select>
       </section>
       {notice ? (
         <p className="form-success" role="status">
           {notice}
         </p>
       ) : null}
-      {upload.error || clone.error || status.error ? (
+      {upload.error || remove.error ? (
         <p className="form-error" role="alert">
-          {message(upload.error ?? clone.error ?? status.error)}
+          {message(upload.error ?? remove.error)}
         </p>
       ) : null}
       {questions.isLoading ? <p>Loading questions…</p> : null}
@@ -804,23 +777,18 @@ export function QuestionBank(): ReactElement {
               </div>
             </div>
             <div className="question-row-actions">
-              <span className={`status status--${question.status}`}>{question.status}</span>
               <button className="text-button" onClick={() => void beginEdit(question)}>
                 Preview / edit
               </button>
-              <button className="text-button" onClick={() => clone.mutate(question.id)}>
-                Clone
-              </button>
               <button
                 className="text-button"
-                onClick={() =>
-                  status.mutate({
-                    question,
-                    next: question.status === 'archived' ? 'draft' : 'archived',
-                  })
-                }
+                onClick={() => {
+                  if (window.confirm('Delete this question? This cannot be undone.')) {
+                    remove.mutate(question.id);
+                  }
+                }}
               >
-                {question.status === 'archived' ? 'Restore draft' : 'Archive'}
+                Delete
               </button>
             </div>
           </article>
@@ -828,7 +796,7 @@ export function QuestionBank(): ReactElement {
         {!questions.isLoading && questions.data?.length === 0 ? (
           <div className="panel empty-state">
             <h3>No questions found</h3>
-            <p>Adjust the filters or create the first question.</p>
+            <p>Adjust the filters or create your first question.</p>
           </div>
         ) : null}
       </section>
