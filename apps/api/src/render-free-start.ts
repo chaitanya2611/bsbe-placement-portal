@@ -33,7 +33,6 @@ async function main(): Promise<void> {
     '--name',
     adminName,
   ]);
-  await runNode(join(__dirname, 'question-bank', 'import-aptitude.cli.js'), ['--apply']);
   const server = spawn(process.execPath, ['--enable-source-maps', join(__dirname, 'main.js')], {
     env: process.env,
     stdio: 'inherit',
