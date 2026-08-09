@@ -3,6 +3,7 @@ import type {
   AdminResultSummary,
   AttemptView,
   ExamInput,
+  ExamLockdownConfigInput,
   ExamSummary,
   IntegrityEventInput,
   ResultView,
@@ -300,6 +301,36 @@ export class ExamService implements OnModuleInit, OnModuleDestroy {
           `${exam.name} has been cancelled.`,
         );
     }
+    return this.summary(exam);
+  }
+
+  async updateLockdownConfig(
+    publicId: string,
+    input: ExamLockdownConfigInput,
+    actor: UserDocument,
+    request: Request,
+  ): Promise<ExamSummary> {
+    const exam = await this.examModel.findOne({ publicId }).select('+sebConfigKeys').exec();
+    if (!exam) throw this.notFound('Exam');
+    if (!exam.lockdownRequired)
+      throw new ConflictException({
+        code: 'EXAM_LOCKDOWN_DISABLED',
+        message: 'Safe Exam Browser is not enabled for this examination',
+      });
+    exam.sebConfigKeys = input.sebConfigKeys.map((key) => key.toLowerCase());
+    exam.sebConfigurationUrl = input.sebConfigurationUrl;
+    exam.updatedBy = actor._id;
+    await exam.save();
+    await this.audit.record({
+      eventType: 'exam.lockdown-config.updated',
+      actorUserId: actor._id,
+      actorRole: actor.role,
+      targetType: 'exam',
+      targetPublicId: publicId,
+      outcome: 'success',
+      reason: 'Administrator replaced the approved SEB configuration URL and key allowlist',
+      request,
+    });
     return this.summary(exam);
   }
 

@@ -2,6 +2,7 @@ import type {
   AdminResultSummary,
   AttemptView,
   ExamInput,
+  ExamLockdownConfigInput,
   ExamSummary,
   Program,
   ResultView,
@@ -124,6 +125,14 @@ export function AdminExamWorkspace(): ReactElement {
       identityApi.publishResults(examId, published, 'Administrator publication decision'),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ['admin-results'] });
+    },
+  });
+  const lockdownConfig = useMutation({
+    mutationFn: ({ examId, input }: { examId: string; input: ExamLockdownConfigInput }) =>
+      identityApi.updateExamLockdownConfig(examId, input),
+    onSuccess: async (updated) => {
+      setSelectedExam(updated);
+      await client.invalidateQueries({ queryKey: ['exams'] });
     },
   });
 
@@ -577,6 +586,52 @@ export function AdminExamWorkspace(): ReactElement {
                 Refresh
               </button>
             </div>
+            {selectedExam.lockdownRequired ? (
+              <form
+                className="stack-form lockdown-config-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const form = new FormData(event.currentTarget);
+                  lockdownConfig.mutate({
+                    examId: selectedExam.id,
+                    input: {
+                      sebConfigurationUrl: formText(form, 'lockdownConfigurationUrl').trim(),
+                      sebConfigKeys: formText(form, 'lockdownConfigKeys')
+                        .split(/\s+/)
+                        .filter(Boolean),
+                    },
+                  });
+                }}
+              >
+                <h3>Safe Exam Browser configuration</h3>
+                <p className="form-help">
+                  Replace an inaccessible or rotated SEB configuration without changing the exam
+                  schedule or questions. This action is audited.
+                </p>
+                <label>
+                  Hosted HTTPS configuration URL
+                  <input
+                    type="url"
+                    name="lockdownConfigurationUrl"
+                    defaultValue={selectedExam.sebConfigurationUrl ?? ''}
+                    required
+                  />
+                </label>
+                <label>
+                  Approved SEB Config Keys (one 64-character key per line)
+                  <textarea name="lockdownConfigKeys" rows={2} required />
+                </label>
+                {lockdownConfig.error ? (
+                  <p className="form-error">{message(lockdownConfig.error)}</p>
+                ) : null}
+                {lockdownConfig.isSuccess ? (
+                  <p className="form-success">SEB configuration updated.</p>
+                ) : null}
+                <button className="secondary-button" disabled={lockdownConfig.isPending}>
+                  {lockdownConfig.isPending ? 'Updating…' : 'Update SEB configuration'}
+                </button>
+              </form>
+            ) : null}
             <h3>Candidate results</h3>
             {adminResults.isLoading ? <p>Loading results…</p> : null}
             {adminResults.error ? (

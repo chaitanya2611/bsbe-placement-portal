@@ -1,5 +1,15 @@
-import type { ExamInput, IntegrityEventInput, SaveAnswerInput } from '@bsbe/contracts';
-import { examInputSchema, integrityEventSchema, saveAnswerSchema } from '@bsbe/contracts';
+import type {
+  ExamInput,
+  ExamLockdownConfigInput,
+  IntegrityEventInput,
+  SaveAnswerInput,
+} from '@bsbe/contracts';
+import {
+  examInputSchema,
+  examLockdownConfigInputSchema,
+  integrityEventSchema,
+  saveAnswerSchema,
+} from '@bsbe/contracts';
 import { Body, Controller, Get, Header, Param, Patch, Post, Put, Req, Res } from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -54,6 +64,16 @@ export class ExamAdminController {
     @Req() request: AuthenticatedRequest,
   ): ReturnType<ExamService['update']> {
     return this.exams.update(examId, input, request.authentication!.user, request);
+  }
+  @Put(':examId/lockdown-config')
+  @RequireRecentAuthentication()
+  @ApiOperation({ summary: 'Replace the approved SEB URL and Config Keys' })
+  updateLockdownConfig(
+    @Param('examId') examId: string,
+    @Body(new ZodValidationPipe(examLockdownConfigInputSchema)) input: ExamLockdownConfigInput,
+    @Req() request: AuthenticatedRequest,
+  ): ReturnType<ExamService['updateLockdownConfig']> {
+    return this.exams.updateLockdownConfig(examId, input, request.authentication!.user, request);
   }
   @Patch(':examId/status')
   @RequireRecentAuthentication()

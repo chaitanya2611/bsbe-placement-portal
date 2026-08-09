@@ -4,6 +4,7 @@ import type {
   AdminResultSummary,
   AttemptView,
   ExamInput,
+  ExamLockdownConfigInput,
   ExamSummary,
   IntegrityEventInput,
   MediaAsset,
@@ -179,6 +180,11 @@ export const identityApi = {
     api<ExamSummary>('/admin/exams', { method: 'POST', body: JSON.stringify(input) }),
   updateExam: (examId: string, input: ExamInput) =>
     api<ExamSummary>(`/admin/exams/${examId}`, { method: 'PUT', body: JSON.stringify(input) }),
+  updateExamLockdownConfig: (examId: string, input: ExamLockdownConfigInput) =>
+    api<ExamSummary>(`/admin/exams/${examId}/lockdown-config`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
   setExamStatus: (examId: string, status: 'published' | 'cancelled' | 'archived', reason: string) =>
     api<ExamSummary>(`/admin/exams/${examId}/status`, {
       method: 'PATCH',

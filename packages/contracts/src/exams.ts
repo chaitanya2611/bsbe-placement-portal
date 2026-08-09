@@ -77,6 +77,14 @@ export const examInputSchema = z
       });
   });
 
+export const examLockdownConfigInputSchema = z.object({
+  sebConfigKeys: z
+    .array(z.string().regex(/^[a-fA-F0-9]{64}$/))
+    .min(1)
+    .max(12),
+  sebConfigurationUrl: z.string().url(),
+});
+
 export const examSummarySchema = z.object({
   id: z.uuid(),
   name: z.string(),
@@ -235,6 +243,7 @@ export type AttemptStatus = z.infer<typeof attemptStatusSchema>;
 export type AttemptView = z.infer<typeof attemptViewSchema>;
 export type AttendanceStatus = z.infer<typeof attendanceStatusSchema>;
 export type ExamInput = z.infer<typeof examInputSchema>;
+export type ExamLockdownConfigInput = z.infer<typeof examLockdownConfigInputSchema>;
 export type ExamStatus = z.infer<typeof examStatusSchema>;
 export type ExamSummary = z.infer<typeof examSummarySchema>;
 export type IntegrityEventInput = z.infer<typeof integrityEventSchema>;
