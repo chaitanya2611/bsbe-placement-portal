@@ -1,0 +1,46 @@
+name: Keep Render portal awake
+
+on:
+  schedule:
+    # Every 10 minutes from 08:30 through 18:29 IST. Keeping both free
+    # web services awake 24/7 would exceed Render's 750 free hours/month.
+    - cron: "*/10 3-12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Ping portal and API
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Keep both Render services warm
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          response="$(${CURL:-curl} \
+            --silent \
+            --show-error \
+            --location \
+            --retry 2 \
+            --retry-all-errors \
+            --retry-delay 10 \
+            --max-time 120 \
+            --write-out $'\n%{http_code}' \
+            'https://bsbe-placement-portal.onrender.com/api/v1/health/live')"
+
+          status="${response##*$'\n'}"
+          body="${response%$'\n'*}"
+          printf '%s\n' "$body"
+
+          if [[ "$status" != "200" ]]; then
+            printf 'Keepalive request failed with HTTP %s\n' "$status" >&2
+            exit 1
+          fi
