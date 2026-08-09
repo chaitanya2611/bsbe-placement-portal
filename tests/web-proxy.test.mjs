@@ -51,4 +51,14 @@ test('web server proxies API requests through a configured public origin', async
   const response = await fetch(`http://127.0.0.1:${webPort}/api/v1/proxy-smoke`);
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { path: '/api/v1/proxy-smoke' });
+
+  const sebResponse = await fetch(`http://127.0.0.1:${webPort}/BSBE-Placement-Portal.seb`);
+  assert.equal(sebResponse.status, 200);
+  assert.equal(sebResponse.headers.get('content-type'), 'application/octet-stream');
+  assert.equal(
+    sebResponse.headers.get('content-disposition'),
+    'attachment; filename="BSBE-Placement-Portal.seb"',
+  );
+  assert.equal(sebResponse.headers.get('cache-control'), 'no-store');
+  assert.ok((await sebResponse.arrayBuffer()).byteLength > 0);
 });

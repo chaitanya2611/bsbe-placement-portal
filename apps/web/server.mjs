@@ -1,7 +1,7 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer, request as createProxyRequest } from 'node:http';
 import { request as createSecureProxyRequest } from 'node:https';
-import { extname, join, normalize } from 'node:path';
+import { basename, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const port = Number.parseInt(process.env.PORT ?? '8080', 10);
@@ -18,6 +18,7 @@ const contentTypes = new Map([
   ['.js', 'text/javascript; charset=utf-8'],
   ['.json', 'application/json; charset=utf-8'],
   ['.map', 'application/json; charset=utf-8'],
+  ['.seb', 'application/octet-stream'],
   ['.svg', 'image/svg+xml'],
   ['.webmanifest', 'application/manifest+json'],
 ]);
@@ -109,13 +110,16 @@ createServer((request, response) => {
     filePath = join(root, 'index.html');
   }
 
-  response.setHeader(
-    'Content-Type',
-    contentTypes.get(extname(filePath)) ?? 'application/octet-stream',
-  );
+  const fileExtension = extname(filePath).toLowerCase();
+  response.setHeader('Content-Type', contentTypes.get(fileExtension) ?? 'application/octet-stream');
+  if (fileExtension === '.seb') {
+    response.setHeader('Content-Disposition', `attachment; filename="${basename(filePath)}"`);
+  }
   response.setHeader(
     'Cache-Control',
-    filePath.endsWith('index.html') ? 'no-store' : 'public, max-age=31536000, immutable',
+    filePath.endsWith('index.html') || fileExtension === '.seb'
+      ? 'no-store'
+      : 'public, max-age=31536000, immutable',
   );
   createReadStream(filePath).pipe(response);
 }).listen(port, '0.0.0.0', () => {
