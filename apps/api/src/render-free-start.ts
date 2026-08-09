@@ -1,5 +1,14 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
+import { createConnection } from 'mongoose';
+
+const QUESTION_POOL_RESET_ID = 'clear-question-pool-2026-08-09';
+
+interface MaintenanceOperation {
+  _id: string;
+  completedAt?: Date;
+  deletedQuestions?: number;
+}
 
 function runNode(script: string, args: string[] = []): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -18,6 +27,35 @@ function runNode(script: string, args: string[] = []): Promise<void> {
   });
 }
 
+async function resetQuestionPoolOnce(): Promise<void> {
+  const uri = process.env.MONGODB_URI?.trim();
+  if (!uri) throw new Error('MONGODB_URI is required');
+
+  const connection = await createConnection(uri).asPromise();
+  try {
+    const operations = connection.db!.collection<MaintenanceOperation>('maintenance_operations');
+    const existing = await operations.findOne({ _id: QUESTION_POOL_RESET_ID });
+    if (existing?.completedAt) return;
+
+    // Remove only the mutable question-pool records. Immutable versions and rubrics are retained
+    // because published exams and historical attempts refer to those snapshots directly.
+    const result = await connection.db!.collection('questions').deleteMany({});
+    await operations.updateOne(
+      { _id: QUESTION_POOL_RESET_ID },
+      {
+        $set: {
+          completedAt: new Date(),
+          deletedQuestions: result.deletedCount,
+        },
+      },
+      { upsert: true },
+    );
+    process.stdout.write(`Question pool reset completed: ${result.deletedCount} questions removed.\n`);
+  } finally {
+    await connection.close();
+  }
+}
+
 async function main(): Promise<void> {
   const adminEmail = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim();
   const adminName = process.env.BOOTSTRAP_ADMIN_NAME?.trim();
@@ -33,6 +71,7 @@ async function main(): Promise<void> {
     '--name',
     adminName,
   ]);
+  await resetQuestionPoolOnce();
 
   const server = spawn(process.execPath, ['--enable-source-maps', join(__dirname, 'main.js')], {
     env: process.env,
