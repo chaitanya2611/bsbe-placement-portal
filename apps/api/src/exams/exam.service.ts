@@ -1,4 +1,5 @@
 import type {
+  AdminResultSummary,
   AttemptView,
   ExamInput,
   ExamSummary,
@@ -842,6 +843,72 @@ export class ExamService implements OnModuleInit, OnModuleDestroy {
       .sort({ publishedAt: -1 })
       .exec();
     return Promise.all(results.map((result) => this.resultView(result, user)));
+  }
+
+  async adminResults(examPublicId: string): Promise<AdminResultSummary[]> {
+    const exam = await this.examModel.findOne({ publicId: examPublicId }).exec();
+    if (!exam) throw this.notFound('Exam');
+    const resultHistory = await this.resultModel
+      .find({ examId: exam._id })
+      .sort({ version: -1, evaluatedAt: -1 })
+      .exec();
+    const latestByAttempt = new Map<string, ResultDocument>();
+    for (const result of resultHistory) {
+      const attemptId = result.attemptId.toString();
+      if (!latestByAttempt.has(attemptId)) latestByAttempt.set(attemptId, result);
+    }
+    const results = [...latestByAttempt.values()];
+    if (!results.length) return [];
+
+    const [users, attempts] = await Promise.all([
+      this.userModel.find({ _id: { $in: results.map((result) => result.userId) } }).exec(),
+      this.attemptModel.find({ _id: { $in: results.map((result) => result.attemptId) } }).exec(),
+    ]);
+    const programs = await this.programModel
+      .find({
+        _id: {
+          $in: users.flatMap((user) => (user.programId ? [user.programId] : [])),
+        },
+      })
+      .exec();
+    const userById = new Map(users.map((user) => [user.id, user]));
+    const attemptById = new Map(attempts.map((attempt) => [attempt.id, attempt]));
+    const programById = new Map(programs.map((program) => [program.id, program]));
+
+    return results.flatMap((result) => {
+      const user = userById.get(result.userId.toString());
+      const attempt = attemptById.get(result.attemptId.toString());
+      if (!user || !attempt) return [];
+      const program = user.programId ? programById.get(user.programId.toString()) : undefined;
+      return [
+        {
+          id: result.publicId,
+          examId: exam.publicId,
+          studentName: user.fullName,
+          candidateEmail: user.email,
+          rollNumber: user.rollNumber ?? '',
+          program: program?.name ?? '',
+          attendance:
+            attempt.status === 'submitted'
+              ? 'submitted'
+              : attempt.status === 'auto-submitted'
+                ? 'auto-submitted'
+                : attempt.status === 'terminated'
+                  ? 'terminated'
+                  : 'interrupted',
+          startedAt: attempt.startedAt.toISOString(),
+          submittedAt: (attempt.submittedAt ?? attempt.updatedAt).toISOString(),
+          score: result.score,
+          maximumScore: result.maximumScore,
+          percentage: result.percentage,
+          grade: result.grade,
+          published: result.published,
+          publishedAt: result.publishedAt?.toISOString() ?? null,
+          evaluatedAt: result.evaluatedAt.toISOString(),
+          sectionScores: result.sectionScores,
+        },
+      ];
+    });
   }
 
   async analytics(examPublicId: string): Promise<unknown> {

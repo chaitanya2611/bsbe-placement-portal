@@ -1,5 +1,6 @@
 import type {
   AccountSummary,
+  AdminResultSummary,
   AttemptView,
   ExamInput,
   ExamSummary,
@@ -183,6 +184,7 @@ export const identityApi = {
     }),
   liveAttempts: (examId: string) => api<unknown[]>(`/admin/exams/${examId}/live`),
   analytics: (examId: string) => api<Record<string, unknown>>(`/admin/exams/${examId}/analytics`),
+  adminResults: (examId: string) => api<AdminResultSummary[]>(`/admin/exams/${examId}/results`),
   publishResults: (examId: string, published: boolean, reason: string) =>
     api<{ updated: number }>(`/admin/exams/${examId}/results`, {
       method: 'PATCH',

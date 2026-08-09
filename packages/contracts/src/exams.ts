@@ -190,6 +190,34 @@ export const resultViewSchema = z.object({
     .optional(),
 });
 
+export const adminResultSummarySchema = z.object({
+  id: z.uuid(),
+  examId: z.uuid(),
+  studentName: z.string(),
+  candidateEmail: z.email(),
+  rollNumber: z.string(),
+  program: z.string(),
+  attendance: attendanceStatusSchema,
+  startedAt: z.iso.datetime(),
+  submittedAt: z.iso.datetime(),
+  score: z.number(),
+  maximumScore: z.number(),
+  percentage: z.number(),
+  grade: z.string(),
+  published: z.boolean(),
+  publishedAt: z.iso.datetime().nullable(),
+  evaluatedAt: z.iso.datetime(),
+  sectionScores: z.array(
+    z.object({
+      sectionId: z.uuid(),
+      title: z.string(),
+      score: z.number(),
+      maximumScore: z.number(),
+    }),
+  ),
+});
+
+export type AdminResultSummary = z.infer<typeof adminResultSummarySchema>;
 export type AttemptStatus = z.infer<typeof attemptStatusSchema>;
 export type AttemptView = z.infer<typeof attemptViewSchema>;
 export type AttendanceStatus = z.infer<typeof attendanceStatusSchema>;

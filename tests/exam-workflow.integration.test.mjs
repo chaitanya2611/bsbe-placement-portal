@@ -203,10 +203,17 @@ test(
     );
     assert.equal(submission.status, 'submitted');
     assert.deepEqual(await exams.studentResults(student), []);
+    const privateAdminResults = await exams.adminResults(draft.id);
+    assert.equal(privateAdminResults.length, 1);
+    assert.equal(privateAdminResults[0].studentName, 'Fictional Student');
+    assert.equal(privateAdminResults[0].rollNumber, 'TEST-001');
+    assert.equal(privateAdminResults[0].score, 5);
+    assert.equal(privateAdminResults[0].published, false);
     assert.deepEqual(
       await exams.publishResults(draft.id, true, 'Integration publication', admin, request),
       { updated: 1 },
     );
+    assert.equal((await exams.adminResults(draft.id))[0].published, true);
     const published = await exams.studentResults(student);
     assert.equal(published.length, 1);
     assert.equal(published[0].score, 5);

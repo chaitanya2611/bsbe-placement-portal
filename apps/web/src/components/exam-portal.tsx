@@ -1,4 +1,5 @@
 import type {
+  AdminResultSummary,
   AttemptView,
   ExamInput,
   ExamSummary,
@@ -72,6 +73,11 @@ export function AdminExamWorkspace(): ReactElement {
     queryFn: () => identityApi.analytics(selectedExam!.id),
     enabled: Boolean(selectedExam),
   });
+  const adminResults = useQuery({
+    queryKey: ['admin-results', selectedExam?.id],
+    queryFn: () => identityApi.adminResults(selectedExam!.id),
+    enabled: Boolean(selectedExam),
+  });
   const create = useMutation({
     mutationFn: identityApi.createExam,
     onSuccess: async () => {
@@ -97,6 +103,9 @@ export function AdminExamWorkspace(): ReactElement {
   const results = useMutation({
     mutationFn: ({ examId, published }: { examId: string; published: boolean }) =>
       identityApi.publishResults(examId, published, 'Administrator publication decision'),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ['admin-results'] });
+    },
   });
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
@@ -407,6 +416,9 @@ export function AdminExamWorkspace(): ReactElement {
                   <span className={`status status--${exam.status}`}>{exam.status}</span>
                 </button>
                 <div className="exam-card-actions">
+                  <button type="button" onClick={() => setSelectedExam(exam)}>
+                    View results
+                  </button>
                   {exam.status === 'draft' ? (
                     <button onClick={() => status.mutate({ examId: exam.id, next: 'published' })}>
                       Publish
@@ -438,8 +450,71 @@ export function AdminExamWorkspace(): ReactElement {
         </div>
         {selectedExam ? (
           <div className="panel live-panel">
-            <p className="eyebrow">Live operations</p>
-            <h2>{selectedExam.name}</h2>
+            <div className="live-panel-heading">
+              <div>
+                <p className="eyebrow">Live operations and results</p>
+                <h2>{selectedExam.name}</h2>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() =>
+                  void Promise.all([live.refetch(), analytics.refetch(), adminResults.refetch()])
+                }
+              >
+                Refresh
+              </button>
+            </div>
+            <h3>Candidate results</h3>
+            {adminResults.isLoading ? <p>Loading results…</p> : null}
+            {adminResults.error ? (
+              <p className="form-error">{message(adminResults.error)}</p>
+            ) : null}
+            {adminResults.data?.length ? (
+              <div className="admin-results-table-wrap">
+                <table className="admin-results-table">
+                  <thead>
+                    <tr>
+                      <th>Candidate</th>
+                      <th>Roll number</th>
+                      <th>Program</th>
+                      <th>Score</th>
+                      <th>Percentage</th>
+                      <th>Grade</th>
+                      <th>Submitted</th>
+                      <th>Publication</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminResults.data.map((result: AdminResultSummary) => (
+                      <tr key={result.id}>
+                        <td>
+                          <strong>{result.studentName}</strong>
+                          <small>{result.candidateEmail}</small>
+                        </td>
+                        <td>{result.rollNumber || '—'}</td>
+                        <td>{result.program || '—'}</td>
+                        <td>
+                          {result.score} / {result.maximumScore}
+                        </td>
+                        <td>{result.percentage.toFixed(1)}%</td>
+                        <td>{result.grade}</td>
+                        <td>{new Date(result.submittedAt).toLocaleString()}</td>
+                        <td>
+                          <span
+                            className={`status status--${result.published ? 'active' : 'draft'}`}
+                          >
+                            {result.published ? 'Published' : 'Private'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : !adminResults.isLoading && !adminResults.error ? (
+              <p className="form-help">No evaluated candidate results are available yet.</p>
+            ) : null}
             <h3>Attempts</h3>
             <pre>{JSON.stringify(live.data ?? [], null, 2)}</pre>
             <h3>Analytics</h3>
@@ -468,6 +543,7 @@ export function StudentExamWorkspace({ session }: { session: SessionSummary }): 
   const [password, setPassword] = useState('');
   const [fallback, setFallback] = useState(true);
   const [systemCheck, setSystemCheck] = useState<string>();
+  const [fullscreenError, setFullscreenError] = useState<string>();
   const enter = useMutation({
     mutationFn: async () => {
       if (!selected) throw new Error('Select an examination');
@@ -484,13 +560,38 @@ export function StudentExamWorkspace({ session }: { session: SessionSummary }): 
       client.setQueryData(['active-attempt'], attempt);
       setSelected(undefined);
     },
+    onError: () => {
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    },
   });
+  const startExamInFullscreen = (): void => {
+    setFullscreenError(undefined);
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      setFullscreenError('Examinations require a supported laptop or desktop display.');
+      return;
+    }
+    if (!document.fullscreenEnabled) {
+      setFullscreenError('Fullscreen is unavailable. Enable it in your browser before starting.');
+      return;
+    }
+    if (document.fullscreenElement) {
+      enter.mutate();
+      return;
+    }
+    void document.documentElement
+      .requestFullscreen()
+      .then(() => enter.mutate())
+      .catch(() =>
+        setFullscreenError('Allow fullscreen access to authorize and start the examination.'),
+      );
+  };
   if (active.data)
     return (
       <ExamRunner
         initial={active.data}
         session={session}
         onFinished={async () => {
+          if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
           client.setQueryData(['active-attempt'], null);
           await Promise.all([
             client.invalidateQueries({ queryKey: ['student-exams'] }),
@@ -582,15 +683,17 @@ export function StudentExamWorkspace({ session }: { session: SessionSummary }): 
                   Use administrator-approved standard-browser fallback
                 </label>
               ) : null}
-              {enter.error ? <p className="form-error">{message(enter.error)}</p> : null}
+              {fullscreenError || enter.error ? (
+                <p className="form-error">{fullscreenError ?? message(enter.error)}</p>
+              ) : null}
               <div className="dialog-actions">
                 <button onClick={() => setSelected(undefined)}>Cancel</button>
                 <button
                   className="primary-button"
                   disabled={enter.isPending}
-                  onClick={() => enter.mutate()}
+                  onClick={startExamInFullscreen}
                 >
-                  Authorize and start
+                  Start in fullscreen
                 </button>
               </div>
             </section>

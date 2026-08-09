@@ -122,6 +122,11 @@ export class ExamAdminController {
       request,
     );
   }
+  @Get(':examId/results')
+  @RequirePermissions('analytics:read')
+  resultsForAdmin(@Param('examId') examId: string): ReturnType<ExamService['adminResults']> {
+    return this.exams.adminResults(examId);
+  }
   @Post(':examId/results/re-evaluate')
   @RequirePermissions('result:manage')
   @RequireRecentAuthentication()
