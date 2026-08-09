@@ -13,6 +13,7 @@
     "bootstrap:admin": "node --enable-source-maps dist/identity/bootstrap-admin.cli.js",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "dev": "node scripts/dev.mjs",
+    "import:aptitude": "node --enable-source-maps dist/question-bank/import-aptitude.cli.js",
     "migrate": "node --enable-source-maps dist/identity/migration.cli.js",
     "seed": "node --enable-source-maps dist/seed/seed.cli.js",
     "start": "node --enable-source-maps dist/main.js",

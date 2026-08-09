@@ -18,6 +18,7 @@
     "dev": "pnpm --parallel --filter @bsbe/api --filter @bsbe/web run dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "import:aptitude": "pnpm run build && pnpm --filter @bsbe/api run import:aptitude",
     "lint": "pnpm run build:packages && eslint . --max-warnings=0",
     "migrate": "pnpm run build && pnpm --filter @bsbe/api run migrate",
     "seed": "pnpm --filter @bsbe/api run seed",
