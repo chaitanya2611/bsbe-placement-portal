@@ -31,6 +31,11 @@ export class ExamAdminController {
   > {
     return this.exams.listAdmin();
   }
+  @Get(':examId')
+  @ApiOperation({ summary: 'Load an examination for administration or editing' })
+  detail(@Param('examId') examId: string): ReturnType<ExamService['adminDetail']> {
+    return this.exams.adminDetail(examId);
+  }
   @Post()
   @RequireRecentAuthentication()
   @ApiOperation({ summary: 'Create a validated examination draft' })
@@ -42,7 +47,7 @@ export class ExamAdminController {
   }
   @Put(':examId')
   @RequireRecentAuthentication()
-  @ApiOperation({ summary: 'Update a draft examination' })
+  @ApiOperation({ summary: 'Update a draft or a not-yet-started published examination' })
   update(
     @Param('examId') examId: string,
     @Body(new ZodValidationPipe(examInputSchema)) input: ExamInput,

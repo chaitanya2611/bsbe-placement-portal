@@ -229,5 +229,82 @@ test(
     assert.match(await exams.attendanceCsv(draft.id, admin, request), /Fictional Student/);
     const analytics = await exams.analytics(draft.id);
     assert.equal(analytics.statistics.sampleSize, 1);
+
+    const futureStart = new Date(Date.now() + 3_600_000);
+    const futureInput = {
+      name: 'Future Editable Examination',
+      description: 'Published editing lifecycle coverage',
+      instructions: 'Answer the selected questions.',
+      allowedProgramIds: [program.publicId],
+      startAt: futureStart.toISOString(),
+      endEntryAt: new Date(futureStart.getTime() + 300_000).toISOString(),
+      durationSeconds: 600,
+      timezone: 'Asia/Kolkata',
+      password: 'FutureExam123',
+      lockdownRequired: false,
+      allowStandardBrowserFallback: true,
+      sebConfigKeys: [],
+      showQuestionReview: false,
+      showCorrectAnswers: false,
+      gradeBoundaries: [
+        { grade: 'A', minimumPercentage: 80 },
+        { grade: 'F', minimumPercentage: 0 },
+      ],
+      sections: [
+        {
+          title: 'Editable section',
+          instructions: 'Complete all.',
+          durationSeconds: 600,
+          questionIds: created.map((question) => question.questionId),
+          selectCount: 2,
+          randomQuestionOrder: true,
+          randomOptionOrder: true,
+          navigation: 'free',
+        },
+      ],
+    };
+    const futureDraft = await exams.create(futureInput, admin, request);
+    const draftDetail = await exams.adminDetail(futureDraft.id);
+    assert.equal(draftDetail.name, futureInput.name);
+    assert.equal(draftDetail.hasPassword, true);
+    assert.deepEqual(draftDetail.allowedProgramIds, [program.publicId]);
+    assert.deepEqual(
+      draftDetail.sections[0].questionIds.sort(),
+      created.map((question) => question.questionId).sort(),
+    );
+
+    await exams.setStatus(
+      futureDraft.id,
+      'published',
+      'Published edit integration coverage',
+      admin,
+      request,
+    );
+    const publishedEdit = { ...futureInput };
+    delete publishedEdit.password;
+    const revisedStart = new Date(futureStart.getTime() + 1_800_000);
+    const revised = await exams.update(
+      futureDraft.id,
+      {
+        ...publishedEdit,
+        name: 'Revised Future Examination',
+        startAt: revisedStart.toISOString(),
+        endEntryAt: new Date(revisedStart.getTime() + 300_000).toISOString(),
+      },
+      admin,
+      request,
+    );
+    assert.equal(revised.status, 'published');
+    assert.equal(revised.version, 2);
+    assert.equal((await exams.adminDetail(futureDraft.id)).hasPassword, true);
+    assert.equal(
+      (await exams.studentSchedule(student)).find((exam) => exam.id === futureDraft.id)?.name,
+      'Revised Future Examination',
+    );
+
+    await assert.rejects(
+      exams.update(draft.id, publishedEdit, admin, request),
+      (error) => error?.getResponse?.().code === 'EXAM_ENTRY_STARTED',
+    );
   },
 );

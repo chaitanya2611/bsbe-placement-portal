@@ -92,6 +92,18 @@ export const examSummarySchema = z.object({
   sebConfigurationUrl: z.string().url().optional(),
 });
 
+export const adminExamDetailSchema = examSummarySchema.extend({
+  instructions: z.string(),
+  allowedProgramIds: z.array(z.uuid()),
+  allowStandardBrowserFallback: z.boolean(),
+  sebConfigKeys: z.array(z.string()),
+  showQuestionReview: z.boolean(),
+  showCorrectAnswers: z.boolean(),
+  gradeBoundaries: z.array(gradeBoundarySchema),
+  sections: z.array(examSectionInputSchema),
+  hasPassword: z.boolean(),
+});
+
 export const studentExamSchema = examSummarySchema.extend({
   instructions: z.string(),
   eligible: z.boolean(),
@@ -218,6 +230,7 @@ export const adminResultSummarySchema = z.object({
 });
 
 export type AdminResultSummary = z.infer<typeof adminResultSummarySchema>;
+export type AdminExamDetail = z.infer<typeof adminExamDetailSchema>;
 export type AttemptStatus = z.infer<typeof attemptStatusSchema>;
 export type AttemptView = z.infer<typeof attemptViewSchema>;
 export type AttendanceStatus = z.infer<typeof attendanceStatusSchema>;

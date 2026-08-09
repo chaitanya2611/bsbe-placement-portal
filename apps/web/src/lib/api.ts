@@ -1,4 +1,5 @@
 import type {
+  AdminExamDetail,
   AccountSummary,
   AdminResultSummary,
   AttemptView,
@@ -173,6 +174,7 @@ export const identityApi = {
   mediaContentUrl: (mediaId: string) =>
     `${webEnvironment.VITE_API_BASE_URL}/admin/media/${mediaId}/content`,
   exams: () => api<ExamSummary[]>('/admin/exams'),
+  exam: (examId: string) => api<AdminExamDetail>(`/admin/exams/${examId}`),
   createExam: (input: ExamInput) =>
     api<ExamSummary>('/admin/exams', { method: 'POST', body: JSON.stringify(input) }),
   updateExam: (examId: string, input: ExamInput) =>

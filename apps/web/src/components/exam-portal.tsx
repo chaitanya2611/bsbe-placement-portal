@@ -41,28 +41,43 @@ interface SectionDraft {
   durationMinutes: number;
   selectCount: number;
   questionIds: string[];
+  randomQuestionOrder: boolean;
+  randomOptionOrder: boolean;
+  navigation: 'free' | 'forward-only';
+}
+
+function newSection(title = 'Section 1'): SectionDraft {
+  return {
+    id: crypto.randomUUID(),
+    title,
+    instructions: '',
+    durationMinutes: 30,
+    selectCount: 1,
+    questionIds: [],
+    randomQuestionOrder: true,
+    randomOptionOrder: true,
+    navigation: 'free',
+  };
 }
 
 export function AdminExamWorkspace(): ReactElement {
   const client = useQueryClient();
+  const builderRef = useRef<HTMLElement>(null);
   const exams = useQuery({ queryKey: ['exams'], queryFn: identityApi.exams });
   const programs = useQuery({ queryKey: ['programs'], queryFn: identityApi.programs });
   const questions = useQuery({
     queryKey: ['questions', 'exam-builder'],
     queryFn: () => identityApi.questions({ status: 'active' }),
   });
-  const [sections, setSections] = useState<SectionDraft[]>([
-    {
-      id: crypto.randomUUID(),
-      title: 'Section 1',
-      instructions: '',
-      durationMinutes: 30,
-      selectCount: 1,
-      questionIds: [],
-    },
-  ]);
+  const [sections, setSections] = useState<SectionDraft[]>([newSection()]);
+  const [editingExamId, setEditingExamId] = useState<string>();
   const [selectedExam, setSelectedExam] = useState<ExamSummary>();
   const [pickerSectionId, setPickerSectionId] = useState<string>();
+  const examDetail = useQuery({
+    queryKey: ['exam-detail', editingExamId],
+    queryFn: () => identityApi.exam(editingExamId!),
+    enabled: Boolean(editingExamId),
+  });
   const live = useQuery({
     queryKey: ['live-attempts', selectedExam?.id],
     queryFn: () => identityApi.liveAttempts(selectedExam!.id),
@@ -78,10 +93,14 @@ export function AdminExamWorkspace(): ReactElement {
     queryFn: () => identityApi.adminResults(selectedExam!.id),
     enabled: Boolean(selectedExam),
   });
-  const create = useMutation({
-    mutationFn: identityApi.createExam,
-    onSuccess: async () => {
+  const save = useMutation({
+    mutationFn: ({ examId, input }: { examId?: string; input: ExamInput }) =>
+      examId ? identityApi.updateExam(examId, input) : identityApi.createExam(input),
+    onSuccess: async (updated) => {
       await client.invalidateQueries({ queryKey: ['exams'] });
+      if (selectedExam?.id === updated.id) setSelectedExam(updated);
+      setEditingExamId(undefined);
+      setSections([newSection()]);
     },
   });
   const status = useMutation({
@@ -107,6 +126,24 @@ export function AdminExamWorkspace(): ReactElement {
       await client.invalidateQueries({ queryKey: ['admin-results'] });
     },
   });
+
+  useEffect(() => {
+    if (!examDetail.data) return;
+    setSections(
+      examDetail.data.sections.map((section) => ({
+        id: section.id ?? crypto.randomUUID(),
+        title: section.title,
+        instructions: section.instructions,
+        durationMinutes: section.durationSeconds / 60,
+        selectCount: section.selectCount,
+        questionIds: section.questionIds,
+        randomQuestionOrder: section.randomQuestionOrder,
+        randomOptionOrder: section.randomOptionOrder,
+        navigation: section.navigation,
+      })),
+    );
+    builderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [examDetail.data]);
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -134,7 +171,7 @@ export function AdminExamWorkspace(): ReactElement {
         : {}),
       showQuestionReview: form.get('showReview') === 'on',
       showCorrectAnswers: form.get('showAnswers') === 'on',
-      gradeBoundaries: [
+      gradeBoundaries: examDetail.data?.gradeBoundaries ?? [
         { grade: 'A', minimumPercentage: 80 },
         { grade: 'B', minimumPercentage: 65 },
         { grade: 'C', minimumPercentage: 50 },
@@ -148,31 +185,39 @@ export function AdminExamWorkspace(): ReactElement {
         durationSeconds: section.durationMinutes * 60,
         questionIds: section.questionIds,
         selectCount: section.selectCount,
-        randomQuestionOrder: true,
-        randomOptionOrder: true,
-        navigation: 'free',
+        randomQuestionOrder: section.randomQuestionOrder,
+        randomOptionOrder: section.randomOptionOrder,
+        navigation: section.navigation,
       })),
     };
-    create.mutate(input);
+    save.mutate({ ...(editingExamId ? { examId: editingExamId } : {}), input });
   };
   const tomorrow = new Date(Date.now() + 86_400_000);
+  const editingExam = examDetail.data;
   return (
     <div className="exam-admin-grid">
-      <section className="panel exam-builder">
+      <section className="panel exam-builder" ref={builderRef}>
         <p className="eyebrow">Exam builder</p>
-        <h2>Create scheduled examination</h2>
-        <form onSubmit={submit} className="stack-form">
+        <h2>{editingExamId ? 'Edit scheduled examination' : 'Create scheduled examination'}</h2>
+        {editingExamId && examDetail.isLoading ? <p>Loading examination settings…</p> : null}
+        {examDetail.error ? <p className="form-error">{message(examDetail.error)}</p> : null}
+        <form key={editingExam?.id ?? 'new-exam'} onSubmit={submit} className="stack-form">
           <label>
             Exam name
-            <input name="name" required minLength={3} />
+            <input name="name" defaultValue={editingExam?.name ?? ''} required minLength={3} />
           </label>
           <label>
             Description
-            <textarea name="description" rows={2} />
+            <textarea name="description" rows={2} defaultValue={editingExam?.description ?? ''} />
           </label>
           <label>
             Candidate instructions
-            <textarea name="instructions" rows={4} required />
+            <textarea
+              name="instructions"
+              rows={4}
+              defaultValue={editingExam?.instructions ?? ''}
+              required
+            />
           </label>
           <div className="form-row">
             <label>
@@ -180,7 +225,7 @@ export function AdminExamWorkspace(): ReactElement {
               <input
                 name="startAt"
                 type="datetime-local"
-                defaultValue={localDate(tomorrow)}
+                defaultValue={localDate(editingExam ? new Date(editingExam.startAt) : tomorrow)}
                 required
               />
             </label>
@@ -189,53 +234,100 @@ export function AdminExamWorkspace(): ReactElement {
               <input
                 name="endEntryAt"
                 type="datetime-local"
-                defaultValue={localDate(new Date(tomorrow.getTime() + 30 * 60_000))}
+                defaultValue={localDate(
+                  editingExam
+                    ? new Date(editingExam.endEntryAt)
+                    : new Date(tomorrow.getTime() + 30 * 60_000),
+                )}
                 required
               />
             </label>
             <label>
               Total minutes
-              <input name="durationMinutes" type="number" min={5} defaultValue={60} required />
+              <input
+                name="durationMinutes"
+                type="number"
+                min={5}
+                defaultValue={editingExam ? editingExam.durationSeconds / 60 : 60}
+                required
+              />
             </label>
           </div>
           <fieldset>
             <legend>Eligible programs</legend>
             {programs.data?.map((program: Program) => (
               <label className="check-row" key={program.id}>
-                <input type="checkbox" name="programs" value={program.id} />
+                <input
+                  type="checkbox"
+                  name="programs"
+                  value={program.id}
+                  defaultChecked={editingExam?.allowedProgramIds.includes(program.id) ?? false}
+                />
                 {program.name}
               </label>
             ))}
           </fieldset>
           <label>
             Exam access password
-            <input name="password" type="password" minLength={6} required />
+            <input
+              name="password"
+              type="password"
+              minLength={6}
+              required={!editingExamId}
+              placeholder={editingExamId ? 'Leave blank to keep the current password' : ''}
+              autoComplete="new-password"
+            />
           </label>
           <div className="form-row">
             <label className="check-row">
-              <input name="lockdownRequired" type="checkbox" />
+              <input
+                name="lockdownRequired"
+                type="checkbox"
+                defaultChecked={editingExam?.lockdownRequired ?? false}
+              />
               Require Safe Exam Browser
             </label>
             <label className="check-row">
-              <input name="fallback" type="checkbox" defaultChecked />
+              <input
+                name="fallback"
+                type="checkbox"
+                defaultChecked={editingExam?.allowStandardBrowserFallback ?? true}
+              />
               Allow audited standard-browser fallback
             </label>
           </div>
           <label>
             SEB Config Keys (one 64-character key per line)
-            <textarea name="sebConfigKeys" rows={2} />
+            <textarea
+              name="sebConfigKeys"
+              rows={2}
+              defaultValue={editingExam?.sebConfigKeys.join('\n') ?? ''}
+            />
           </label>
           <label>
             Safe Exam Browser configuration URL (optional)
-            <input name="sebConfigurationUrl" type="url" placeholder="https://…/exam.seb" />
+            <input
+              name="sebConfigurationUrl"
+              type="url"
+              placeholder="https://…/exam.seb"
+              defaultValue={editingExam?.sebConfigurationUrl ?? ''}
+            />
           </label>
           <div className="form-row">
             <label className="check-row">
-              <input name="showReview" type="checkbox" />
+              <input
+                name="showReview"
+                type="checkbox"
+                defaultChecked={editingExam?.showQuestionReview ?? false}
+              />
               Show question-wise performance
             </label>
             <label className="check-row">
-              <input name="showAnswers" type="checkbox" />
+              <input
+                name="showAnswers"
+                type="checkbox"
+                defaultChecked={editingExam?.showCorrectAnswers ?? false}
+              />
               Show correct answers after publication
             </label>
           </div>
@@ -246,17 +338,7 @@ export function AdminExamWorkspace(): ReactElement {
                 type="button"
                 className="secondary-button"
                 onClick={() =>
-                  setSections((items) => [
-                    ...items,
-                    {
-                      id: crypto.randomUUID(),
-                      title: `Section ${items.length + 1}`,
-                      instructions: '',
-                      durationMinutes: 30,
-                      selectCount: 1,
-                      questionIds: [],
-                    },
-                  ])
+                  setSections((items) => [...items, newSection(`Section ${items.length + 1}`)])
                 }
               >
                 Add section
@@ -376,10 +458,28 @@ export function AdminExamWorkspace(): ReactElement {
               </fieldset>
             ))}
           </div>
-          {create.error ? <p className="form-error">{message(create.error)}</p> : null}
-          <button className="primary-button" disabled={create.isPending}>
-            Save exam draft
-          </button>
+          {save.error ? <p className="form-error">{message(save.error)}</p> : null}
+          <div className="form-row">
+            <button
+              className="primary-button"
+              disabled={save.isPending || Boolean(editingExamId && !editingExam)}
+            >
+              {editingExamId ? 'Save exam changes' : 'Save exam draft'}
+            </button>
+            {editingExamId ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  setEditingExamId(undefined);
+                  setSections([newSection()]);
+                  save.reset();
+                }}
+              >
+                Cancel editing
+              </button>
+            ) : null}
+          </div>
         </form>
       </section>
       {pickerSectionId ? (
@@ -419,6 +519,18 @@ export function AdminExamWorkspace(): ReactElement {
                   <button type="button" onClick={() => setSelectedExam(exam)}>
                     View results
                   </button>
+                  {exam.status === 'draft' ||
+                  (exam.status === 'published' && new Date(exam.startAt).getTime() > Date.now()) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        save.reset();
+                        setEditingExamId(exam.id);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  ) : null}
                   {exam.status === 'draft' ? (
                     <button onClick={() => status.mutate({ examId: exam.id, next: 'published' })}>
                       Publish

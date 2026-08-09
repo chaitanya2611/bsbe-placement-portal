@@ -1,4 +1,5 @@
 import type {
+  AdminExamDetail,
   AdminResultSummary,
   AttemptView,
   ExamInput,
@@ -132,6 +133,52 @@ export class ExamService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  async adminDetail(publicId: string): Promise<AdminExamDetail> {
+    const exam = await this.examModel
+      .findOne({ publicId })
+      .select('+passwordHash +sebConfigKeys')
+      .exec();
+    if (!exam) throw this.notFound('Exam');
+    const [programs, questions] = await Promise.all([
+      this.programModel.find({ _id: { $in: exam.allowedProgramIds } }).exec(),
+      this.questionModel
+        .find({ _id: { $in: exam.sections.flatMap((section) => section.questionIds) } })
+        .exec(),
+    ]);
+    const programIds = new Map(
+      programs.map((program) => [program._id.toString(), program.publicId]),
+    );
+    const questionIds = new Map(
+      questions.map((question) => [question._id.toString(), question.publicId]),
+    );
+    return {
+      ...this.summary(exam),
+      instructions: exam.instructions,
+      allowedProgramIds: exam.allowedProgramIds
+        .map((id) => programIds.get(id.toString()))
+        .filter((id): id is string => Boolean(id)),
+      allowStandardBrowserFallback: exam.allowStandardBrowserFallback,
+      sebConfigKeys: exam.sebConfigKeys,
+      showQuestionReview: exam.showQuestionReview,
+      showCorrectAnswers: exam.showCorrectAnswers,
+      gradeBoundaries: exam.gradeBoundaries,
+      sections: exam.sections.map((section) => ({
+        id: section.publicId,
+        title: section.title,
+        instructions: section.instructions,
+        durationSeconds: section.durationSeconds,
+        questionIds: section.questionIds
+          .map((id) => questionIds.get(id.toString()))
+          .filter((id): id is string => Boolean(id)),
+        selectCount: section.selectCount,
+        randomQuestionOrder: section.randomQuestionOrder,
+        randomOptionOrder: section.randomOptionOrder,
+        navigation: section.navigation,
+      })),
+      hasPassword: Boolean(exam.passwordHash),
+    };
+  }
+
   async create(input: ExamInput, actor: UserDocument, request: Request): Promise<ExamSummary> {
     const resolved = await this.resolveInput(input, true);
     const exam = await this.examModel.create({
@@ -165,27 +212,50 @@ export class ExamService implements OnModuleInit, OnModuleDestroy {
       .select('+passwordHash +sebConfigKeys')
       .exec();
     if (!exam) throw this.notFound('Exam');
-    if (exam.status !== 'draft')
+    const updatingPublished = exam.status === 'published';
+    if (updatingPublished && exam.startAt.getTime() <= Date.now())
+      throw new ConflictException({
+        code: 'EXAM_ENTRY_STARTED',
+        message: 'This published exam can no longer be edited because its entry time has started',
+      });
+    if (exam.status !== 'draft' && !updatingPublished)
       throw new ConflictException({
         code: 'EXAM_IMMUTABLE',
-        message: 'Only draft exams can be edited; clone a published exam for changes',
+        message: 'Only draft or not-yet-started published exams can be edited',
       });
     const resolved = await this.resolveInput(input, false);
+    if (updatingPublished && resolved.startAt.getTime() <= Date.now())
+      throw new ConflictException({
+        code: 'EXAM_ENTRY_STARTED',
+        message: 'A published exam must retain a future entry start time when it is edited',
+      });
     Object.assign(exam, resolved, {
       passwordHash: input.password ? this.hashPassword(input.password) : exam.passwordHash,
       currentVersion: exam.currentVersion + 1,
       updatedBy: actor._id,
     });
-    await exam.save();
-    await this.audit.record({
-      eventType: 'exam.modified',
-      actorUserId: actor._id,
-      actorRole: actor.role,
-      targetType: 'exam',
-      targetPublicId: publicId,
-      outcome: 'success',
-      request,
-    });
+    exam.set('sebConfigurationUrl', input.sebConfigurationUrl || undefined);
+    if (updatingPublished) {
+      await this.persistPublishedVersion(exam, actor, request, 'exam.modified');
+      await this.queueExamNotifications(
+        exam,
+        'schedule-change',
+        'Examination schedule updated',
+        `${exam.name} has been updated and is scheduled for ${exam.startAt.toISOString()}.`,
+        'published-edit',
+      );
+    } else {
+      await exam.save();
+      await this.audit.record({
+        eventType: 'exam.modified',
+        actorUserId: actor._id,
+        actorRole: actor.role,
+        targetType: 'exam',
+        targetPublicId: publicId,
+        outcome: 'success',
+        request,
+      });
+    }
     return this.summary(exam);
   }
 
@@ -1247,6 +1317,21 @@ export class ExamService implements OnModuleInit, OnModuleDestroy {
         code: 'EXAM_STATE_INVALID',
         message: 'Only a draft exam can be published',
       });
+    await this.persistPublishedVersion(exam, actor, request, 'exam.published');
+    await this.queueExamNotifications(
+      exam,
+      'exam-reminder',
+      'Examination scheduled',
+      `${exam.name} is scheduled for ${exam.startAt.toISOString()}.`,
+    );
+  }
+
+  private async persistPublishedVersion(
+    exam: ExamDocument,
+    actor: UserDocument,
+    request: Request,
+    eventType: 'exam.published' | 'exam.modified',
+  ): Promise<void> {
     const errors: string[] = [];
     if (!exam.passwordHash) errors.push('Exam password is required');
     if (exam.endEntryAt <= exam.startAt) errors.push('Entry window must end after the start time');
@@ -1321,7 +1406,7 @@ export class ExamService implements OnModuleInit, OnModuleDestroy {
       exam.updatedBy = actor._id;
       await exam.save({ session: databaseSession });
       await this.audit.record({
-        eventType: 'exam.published',
+        eventType,
         actorUserId: actor._id,
         actorRole: actor.role,
         targetType: 'exam',
@@ -1332,12 +1417,6 @@ export class ExamService implements OnModuleInit, OnModuleDestroy {
         metadata: { version: exam.currentVersion },
       });
     });
-    await this.queueExamNotifications(
-      exam,
-      'exam-reminder',
-      'Examination scheduled',
-      `${exam.name} is scheduled for ${exam.startAt.toISOString()}.`,
-    );
   }
 
   private async resolveInput(
