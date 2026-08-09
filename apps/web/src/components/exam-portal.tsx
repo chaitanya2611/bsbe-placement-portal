@@ -3,7 +3,6 @@ import type {
   ExamInput,
   ExamSummary,
   Program,
-  QuestionSummary,
   ResultView,
   SaveAnswerInput,
   SessionSummary,
@@ -14,6 +13,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactEle
 import { identityApi } from '../lib/api';
 import { clearPending, pendingAnswers, queueAnswer } from '../lib/offline-answer-store';
 import { ChemicalPreview, RichText } from './question-bank';
+import { QuestionPicker } from './question-picker';
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : 'The operation could not be completed.';
@@ -61,6 +61,7 @@ export function AdminExamWorkspace(): ReactElement {
     },
   ]);
   const [selectedExam, setSelectedExam] = useState<ExamSummary>();
+  const [pickerSectionId, setPickerSectionId] = useState<string>();
   const live = useQuery({
     queryKey: ['live-attempts', selectedExam?.id],
     queryFn: () => identityApi.liveAttempts(selectedExam!.id),
@@ -287,7 +288,7 @@ export function AdminExamWorkspace(): ReactElement {
                     />
                   </label>
                   <label>
-                    Questions selected
+                    Questions per attempt
                     <input
                       type="number"
                       min={1}
@@ -319,30 +320,39 @@ export function AdminExamWorkspace(): ReactElement {
                     }
                   />
                 </label>
-                <label>
-                  Question pool
-                  <select
-                    multiple
-                    size={Math.min(8, Math.max(3, questions.data?.length ?? 3))}
-                    value={section.questionIds}
-                    onChange={(event) => {
-                      const values = [...event.currentTarget.selectedOptions].map(
-                        (option) => option.value,
-                      );
-                      setSections((items) =>
-                        items.map((item) =>
-                          item.id === section.id ? { ...item, questionIds: values } : item,
-                        ),
-                      );
-                    }}
-                  >
-                    {questions.data?.map((question: QuestionSummary) => (
-                      <option value={question.id} key={question.id}>
-                        {question.promptSummary} · {question.marks} marks
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="section-question-choice">
+                  <div className="section-question-choice-heading">
+                    <div>
+                      <strong>Question pool</strong>
+                      <span>
+                        {section.questionIds.length} selected · {section.selectCount} used per
+                        attempt
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setPickerSectionId(section.id)}
+                    >
+                      Choose questions
+                    </button>
+                  </div>
+                  {section.questionIds.length ? (
+                    <div className="section-question-summary">
+                      {section.questionIds.slice(0, 3).map((questionId) => {
+                        const question = questions.data?.find((item) => item.id === questionId);
+                        return question ? (
+                          <span key={question.id}>{question.promptSummary}</span>
+                        ) : null;
+                      })}
+                      {section.questionIds.length > 3 ? (
+                        <span>+{section.questionIds.length - 3} more</span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="form-help">No questions selected yet.</p>
+                  )}
+                </div>
                 {sections.length > 1 ? (
                   <button
                     type="button"
@@ -363,6 +373,21 @@ export function AdminExamWorkspace(): ReactElement {
           </button>
         </form>
       </section>
+      {pickerSectionId ? (
+        <QuestionPicker
+          questions={questions.data ?? []}
+          initialSelected={
+            sections.find((section) => section.id === pickerSectionId)?.questionIds ?? []
+          }
+          onClose={() => setPickerSectionId(undefined)}
+          onApply={(questionIds) => {
+            setSections((items) =>
+              items.map((item) => (item.id === pickerSectionId ? { ...item, questionIds } : item)),
+            );
+            setPickerSectionId(undefined);
+          }}
+        />
+      ) : null}
       <section className="exam-operations">
         <div className="panel">
           <p className="eyebrow">Schedule and control</p>
