@@ -385,12 +385,10 @@ function SignedInPortal({
       <main className="portal-content">
         <div className="page-heading">
           <div>
-            <p className="eyebrow">Phase 3 · Question bank</p>
             <h1>
               {session.user.role === 'admin' ? 'Assessment administration' : 'Student dashboard'}
             </h1>
           </div>
-          <span className="security-chip">Secure session active</span>
         </div>
         {session.user.role === 'admin' ? (
           <AdminWorkspace />

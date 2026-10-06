@@ -771,7 +771,6 @@ export function StudentExamWorkspace({ session }: { session: SessionSummary }): 
     <div className="student-dashboard-grid">
       <section className="student-main">
         <div className="panel dashboard-hero">
-          <p className="eyebrow">Candidate dashboard</p>
           <h2>Examinations</h2>
           <p>
             All times are controlled by the server. Complete the system check before a secure
@@ -869,7 +868,6 @@ export function StudentExamWorkspace({ session }: { session: SessionSummary }): 
       </section>
       <aside className="student-aside">
         <section className="panel">
-          <p className="eyebrow">Published results</p>
           <h2>Results</h2>
           {results.data?.length ? (
             results.data.map((result: ResultView) => (
@@ -889,7 +887,6 @@ export function StudentExamWorkspace({ session }: { session: SessionSummary }): 
           )}
         </section>
         <section className="panel">
-          <p className="eyebrow">Notifications</p>
           <h2>Inbox</h2>
           {notifications.data?.slice(0, 8).map((notification) => (
             <article className="notification" key={notification.publicId}>
