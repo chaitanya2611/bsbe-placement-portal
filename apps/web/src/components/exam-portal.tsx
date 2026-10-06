@@ -565,6 +565,53 @@ export function AdminExamWorkspace(): ReactElement {
                     PDF
                   </a>
                 </div>
+                <div className="exam-downloads">
+                  <span>Performance</span>
+                  <a
+                    href={identityApi.performanceReportUrl(exam.id, 'pdf')}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    PDF
+                  </a>
+                  <a
+                    href={identityApi.performanceReportUrl(exam.id, 'xlsx')}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Excel
+                  </a>
+                  <span>Question paper</span>
+                  <a
+                    href={identityApi.questionPaperUrl(exam.id, 'pdf', false)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    PDF
+                  </a>
+                  <a
+                    href={identityApi.questionPaperUrl(exam.id, 'docx', false)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Word
+                  </a>
+                  <span>Answer key</span>
+                  <a
+                    href={identityApi.questionPaperUrl(exam.id, 'pdf', true)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    PDF
+                  </a>
+                  <a
+                    href={identityApi.questionPaperUrl(exam.id, 'docx', true)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Word
+                  </a>
+                </div>
               </article>
             ))}
           </div>

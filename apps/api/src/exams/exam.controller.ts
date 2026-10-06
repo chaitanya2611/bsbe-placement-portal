@@ -10,7 +10,19 @@ import {
   integrityEventSchema,
   saveAnswerSchema,
 } from '@bsbe/contracts';
-import { Body, Controller, Get, Header, Param, Patch, Post, Put, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ApiCookieAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { z } from 'zod';
@@ -28,6 +40,23 @@ import {
   SubmitAttemptDto,
 } from './exam.dto';
 import { ExamService } from './exam.service';
+
+const reportContentTypes = {
+  pdf: 'application/pdf',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+} as const;
+
+function sendReport(
+  response: Response,
+  report: { fileName: string; body: Buffer },
+  format: keyof typeof reportContentTypes,
+): void {
+  response.setHeader('content-type', reportContentTypes[format]);
+  response.setHeader('content-disposition', `attachment; filename="${report.fileName}"`);
+  response.setHeader('cache-control', 'no-store');
+  response.send(report.body);
+}
 
 @ApiTags('exam administration')
 @ApiCookieAuth('bsbe_session')
@@ -202,6 +231,62 @@ export class ExamAdminController {
     response.setHeader('content-type', 'application/pdf');
     response.setHeader('content-disposition', `attachment; filename="attendance-${examId}.pdf"`);
     response.send(await this.exams.attendancePdf(examId, request.authentication!.user, request));
+  }
+  @Get(':examId/performance.pdf')
+  @RequirePermissions('export:manage')
+  async performancePdf(
+    @Param('examId') examId: string,
+    @Req() request: AuthenticatedRequest,
+    @Res() response: Response,
+  ): Promise<void> {
+    const user = request.authentication!.user;
+    sendReport(response, await this.exams.performanceReport(examId, 'pdf', user, request), 'pdf');
+  }
+  @Get(':examId/performance.xlsx')
+  @RequirePermissions('export:manage')
+  async performanceXlsx(
+    @Param('examId') examId: string,
+    @Req() request: AuthenticatedRequest,
+    @Res() response: Response,
+  ): Promise<void> {
+    const user = request.authentication!.user;
+    sendReport(response, await this.exams.performanceReport(examId, 'xlsx', user, request), 'xlsx');
+  }
+  @Get(':examId/questions.pdf')
+  @RequirePermissions('export:manage')
+  async questionsPdf(
+    @Param('examId') examId: string,
+    @Query('answers') answers: string | undefined,
+    @Req() request: AuthenticatedRequest,
+    @Res() response: Response,
+  ): Promise<void> {
+    const user = request.authentication!.user;
+    const report = await this.exams.questionPaperReport(
+      examId,
+      'pdf',
+      answers === 'true',
+      user,
+      request,
+    );
+    sendReport(response, report, 'pdf');
+  }
+  @Get(':examId/questions.docx')
+  @RequirePermissions('export:manage')
+  async questionsDocx(
+    @Param('examId') examId: string,
+    @Query('answers') answers: string | undefined,
+    @Req() request: AuthenticatedRequest,
+    @Res() response: Response,
+  ): Promise<void> {
+    const user = request.authentication!.user;
+    const report = await this.exams.questionPaperReport(
+      examId,
+      'docx',
+      answers === 'true',
+      user,
+      request,
+    );
+    sendReport(response, report, 'docx');
   }
   @Post('notifications/announcement')
   @RequireRecentAuthentication()

@@ -120,6 +120,36 @@
   text-decoration: none;
 }
 
+.exam-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 16px;
+}
+
+.exam-downloads span {
+  margin-left: 6px;
+  color: var(--muted, #5f6b7a);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.exam-downloads span:first-child {
+  margin-left: 0;
+}
+
+.exam-downloads a {
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--brand-700);
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
 .live-panel pre {
   max-height: 280px;
   overflow: auto;

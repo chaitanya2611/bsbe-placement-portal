@@ -60,6 +60,14 @@ import {
   scoreObjective,
 } from './exam-domain';
 import {
+  performancePdf,
+  performanceXlsx,
+  type QuestionPaper,
+  questionPaperDocx,
+  questionPaperPdf,
+  rankPerformance,
+} from './exam-reports';
+import {
   EXAM_MODELS,
   type AnswerRecord,
   type AttemptDocument,
@@ -77,6 +85,16 @@ import {
 
 const offlineLeaseSeconds = 90;
 const evaluationVersion = 'objective-v1';
+function reportFileStem(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'exam'
+  );
+}
+
 function printable(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -1147,6 +1165,147 @@ export class ExamService implements OnModuleInit, OnModuleDestroy {
     page.drawText(`Generated ${new Date().toISOString()}`, { x: 36, y: 20, size: 8, font });
     await this.recordExport(examPublicId, actor, request, 'pdf');
     return Buffer.from(await pdf.save());
+  }
+
+  async performanceReport(
+    examPublicId: string,
+    format: 'pdf' | 'xlsx',
+    actor: UserDocument,
+    request: Request,
+  ): Promise<{ fileName: string; body: Buffer }> {
+    const exam = await this.examModel.findOne({ publicId: examPublicId }).exec();
+    if (!exam) throw this.notFound('Exam');
+    const version = await this.reportVersion(exam);
+    const rows = rankPerformance(
+      (await this.adminResults(examPublicId)).map((row) => ({
+        rollNumber: row.rollNumber,
+        studentName: row.studentName,
+        email: row.candidateEmail,
+        program: row.program,
+        attendance: row.attendance,
+        startedAt: row.startedAt ? new Date(row.startedAt) : null,
+        submittedAt: row.submittedAt ? new Date(row.submittedAt) : null,
+        score: row.score,
+        maximumScore: row.maximumScore,
+        percentage: row.percentage,
+        grade: row.grade,
+        published: row.published,
+        sectionScores: row.sectionScores.map((section) => ({
+          title: section.title,
+          score: section.score,
+          maximumScore: section.maximumScore,
+        })),
+      })),
+    );
+    const report = {
+      examName: exam.name,
+      examStartAt: version?.startAt ?? exam.createdAt,
+      timezone: version?.timezone ?? 'Asia/Kolkata',
+      rows,
+    };
+    const body = format === 'pdf' ? await performancePdf(report) : await performanceXlsx(report);
+    await this.recordReport('report.performance-exported', examPublicId, actor, request, {
+      format,
+    });
+    return { fileName: `${reportFileStem(exam.name)}-performance.${format}`, body };
+  }
+
+  async questionPaperReport(
+    examPublicId: string,
+    format: 'pdf' | 'docx',
+    withAnswers: boolean,
+    actor: UserDocument,
+    request: Request,
+  ): Promise<{ fileName: string; body: Buffer }> {
+    const exam = await this.examModel.findOne({ publicId: examPublicId }).exec();
+    if (!exam) throw this.notFound('Exam');
+    const version = await this.reportVersion(exam);
+    if (!version) throw this.notFound('Exam version');
+    const questionVersionIds = version.sections.flatMap((section) => section.questionVersionIds);
+    const [questionVersions, rubrics] = await Promise.all([
+      this.questionVersionModel.find({ _id: { $in: questionVersionIds } }).exec(),
+      withAnswers
+        ? this.rubricModel
+            .find({ questionVersionId: { $in: questionVersionIds } })
+            .select('+iv +ciphertext +authTag')
+            .exec()
+        : Promise.resolve([]),
+    ]);
+    const questionById = new Map(questionVersions.map((question) => [question.id, question]));
+    const rubricById = new Map(
+      rubrics.map((rubric) => [rubric.questionVersionId.toString(), rubric]),
+    );
+    const paper: QuestionPaper = {
+      examName: exam.name,
+      instructions: version.instructions,
+      durationSeconds: version.durationSeconds,
+      sections: version.sections.map((section) => ({
+        title: section.title,
+        instructions: section.instructions,
+        selectCount: section.selectCount,
+        questions: section.questionVersionIds.flatMap((questionVersionId) => {
+          const question = questionById.get(questionVersionId.toString());
+          if (!question) return [];
+          const rubric = rubricById.get(questionVersionId.toString());
+          return [
+            {
+              type: question.type,
+              prompt: question.prompt,
+              options: question.options.map((option) => ({ id: option.id, text: option.text })),
+              marks: question.marks,
+              negativeMarks: question.negativeMarks,
+              difficulty: question.difficulty,
+              explanation: question.explanation,
+              ...(question.numerical?.unit ? { numericalUnit: question.numerical.unit } : {}),
+              ...(rubric ? { answer: this.crypto.decrypt(question._id, rubric) } : {}),
+            },
+          ];
+        }),
+      })),
+    };
+    const body =
+      format === 'pdf'
+        ? await questionPaperPdf(paper, withAnswers)
+        : await questionPaperDocx(paper, withAnswers);
+    await this.recordReport(
+      withAnswers ? 'report.answer-key-exported' : 'report.question-paper-exported',
+      examPublicId,
+      actor,
+      request,
+      { format, examVersion: version.versionNumber },
+    );
+    return {
+      fileName: `${reportFileStem(exam.name)}-${withAnswers ? 'answer-key' : 'question-paper'}.${format}`,
+      body,
+    };
+  }
+
+  /** The published version is what students sat; fall back to the newest draft. */
+  private async reportVersion(exam: ExamDocument): Promise<ExamVersionDocument | null> {
+    if (exam.publishedVersionId) {
+      const published = await this.examVersionModel.findById(exam.publishedVersionId).exec();
+      if (published) return published;
+    }
+    return this.examVersionModel.findOne({ examId: exam._id }).sort({ versionNumber: -1 }).exec();
+  }
+
+  private async recordReport(
+    eventType: string,
+    examPublicId: string,
+    actor: UserDocument,
+    request: Request,
+    metadata: Record<string, string | number | boolean>,
+  ): Promise<void> {
+    await this.audit.record({
+      eventType,
+      actorUserId: actor._id,
+      actorRole: actor.role,
+      targetType: 'exam',
+      targetPublicId: examPublicId,
+      outcome: 'success',
+      request,
+      metadata,
+    });
   }
 
   async marksheetPdf(resultPublicId: string, user: UserDocument): Promise<Buffer> {

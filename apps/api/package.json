@@ -32,6 +32,7 @@
     "@nestjs/swagger": "11.4.6",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
+    "docx": "^9.8.1",
     "exceljs": "^4.4.0",
     "helmet": "8.3.0",
     "mongoose": "8.24.1",

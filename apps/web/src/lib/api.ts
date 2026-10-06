@@ -204,6 +204,10 @@ export const identityApi = {
     `${webEnvironment.VITE_API_BASE_URL}/admin/exams/${examId}/attendance.xlsx`,
   attendancePdfUrl: (examId: string) =>
     `${webEnvironment.VITE_API_BASE_URL}/admin/exams/${examId}/attendance.pdf`,
+  performanceReportUrl: (examId: string, format: 'pdf' | 'xlsx') =>
+    `${webEnvironment.VITE_API_BASE_URL}/admin/exams/${examId}/performance.${format}`,
+  questionPaperUrl: (examId: string, format: 'pdf' | 'docx', withAnswers: boolean) =>
+    `${webEnvironment.VITE_API_BASE_URL}/admin/exams/${examId}/questions.${format}${withAnswers ? '?answers=true' : ''}`,
   studentExams: () => api<StudentExam[]>('/student/exams'),
   authorizeExam: (examId: string, password: string, standardBrowserFallback: boolean) =>
     api<{ authorizationToken: string; expiresInSeconds: number }>(
