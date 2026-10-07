@@ -218,7 +218,7 @@ const DraftSectionSchema = new Schema<ExamSectionDraft>(
   {
     publicId: { type: String, required: true },
     title: { type: String, required: true, maxlength: 160 },
-    instructions: { type: String, required: true, maxlength: 10_000 },
+    instructions: { type: String, default: '', maxlength: 10_000 },
     durationSeconds: { type: Number, required: true, min: 60 },
     questionIds: { type: [Schema.Types.ObjectId], ref: 'Question', required: true },
     selectCount: { type: Number, required: true, min: 1 },
@@ -232,7 +232,7 @@ const VersionSectionSchema = new Schema<ExamVersionSection>(
   {
     publicId: { type: String, required: true, immutable: true },
     title: { type: String, required: true, immutable: true },
-    instructions: { type: String, required: true, immutable: true },
+    instructions: { type: String, default: '', immutable: true },
     durationSeconds: { type: Number, required: true, immutable: true },
     questionVersionIds: {
       type: [Schema.Types.ObjectId],
@@ -284,7 +284,7 @@ export const ExamSchema = new Schema<ExamRecord>(
   {
     publicId: { type: String, required: true, immutable: true },
     name: { type: String, required: true },
-    description: { type: String, required: true },
+    description: { type: String, default: '' },
     instructions: { type: String, required: true },
     status: {
       type: String,
@@ -329,7 +329,7 @@ export const ExamVersionSchema = new Schema<ExamVersionRecord>(
     examId: { type: Schema.Types.ObjectId, ref: 'Exam', required: true, immutable: true },
     versionNumber: { type: Number, required: true, immutable: true },
     name: { type: String, required: true, immutable: true },
-    description: { type: String, required: true, immutable: true },
+    description: { type: String, default: '', immutable: true },
     instructions: { type: String, required: true, immutable: true },
     allowedProgramIds: { type: [Schema.Types.ObjectId], required: true, immutable: true },
     startAt: { type: Date, required: true, immutable: true },

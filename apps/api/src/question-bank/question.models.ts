@@ -204,7 +204,7 @@ export const QuestionVersionSchema = new Schema<QuestionVersionRecord>(
       immutable: true,
     },
     tags: { type: [String], required: true, immutable: true },
-    explanation: { type: String, required: true, immutable: true, maxlength: 20_000 },
+    explanation: { type: String, default: '', immutable: true, maxlength: 20_000 },
     mediaIds: { type: [Schema.Types.ObjectId], ref: 'MediaAsset', required: true, immutable: true },
     chemicalStructure: { type: ChemicalStructureSchema, immutable: true },
     numerical: { type: NumericalDisplaySchema, immutable: true },
