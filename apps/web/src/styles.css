@@ -351,13 +351,17 @@
 .question-picker-body {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(330px, 0.75fr);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
 }
 
 .question-picker-results {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 16px 18px 14px 26px;
   border-right: 1px solid var(--line);
 }
@@ -373,7 +377,9 @@
   display: grid;
   align-content: start;
   gap: 7px;
+  min-height: 0;
   overflow-y: scroll;
+  overscroll-behavior: contain;
   padding: 2px 10px 2px 2px;
   scrollbar-color: var(--brand-700) #e5edf2;
   scrollbar-gutter: stable;
@@ -468,7 +474,9 @@
 
 .question-picker-preview {
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 22px;
   background: #f8fafb;
 }
